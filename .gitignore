@@ -1,0 +1,17 @@
+data/*
+experiments/*
+experiments_archived/*
+scratch/*
+source/__pycache__/*
+__pycache__/*
+__pycache__/
+*.pyc
+.idea/*
+vae_exps/*
+experiments_eval/
+experiment-logger-5f2ecef8f4ce.json
+models/__pycache__/
+experiments_eval_quickdraw/
+experiments_quickdraw/
+projector_models/
+

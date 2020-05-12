@@ -1,0 +1,869 @@
+TensorFlow 2.0 Upgrade Script
+-----------------------------
+Converted 48 files
+Detected 16 issues that require attention
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+File: smart_ink_clone/deprecated/analysis_eager_predictive.py
+--------------------------------------------------------------------------------
+smart_ink_clone/deprecated/analysis_eager_predictive.py:509:10: WARNING: Changing dataset.make_one_shot_iterator() to tf.compat.v1.data.make_one_shot_iterator(dataset). Please check this transformation.
+
+--------------------------------------------------------------------------------
+File: smart_ink_clone/visualization/visualization.py
+--------------------------------------------------------------------------------
+smart_ink_clone/visualization/visualization.py:347:8: WARNING: *.save requires manuel check. (This warning is only applicable if the code saves a tf.Keras model) Keras model.save now saves to the Tensorflow SavedModel format by default, instead of HDF5. To continue saving to HDF5, add the argument save_format='h5' to the save() function.
+--------------------------------------------------------------------------------
+File: smart_ink_clone/smartink/source/training_static_predictive.py
+--------------------------------------------------------------------------------
+smart_ink_clone/smartink/source/training_static_predictive.py:262:8: WARNING: *.save requires manual check. (This warning is only applicable if the code saves a tf.Keras model) Keras model.save now saves to the Tensorflow SavedModel format by default, instead of HDF5. To continue saving to HDF5, add the argument save_format='h5' to the save() function.
+--------------------------------------------------------------------------------
+File: smart_ink_clone/smartink/data/base_dataset.py
+--------------------------------------------------------------------------------
+smart_ink_clone/smartink/data/base_dataset.py:66:22: WARNING: Changing dataset.make_one_shot_iterator() to tf.compat.v1.data.make_one_shot_iterator(dataset). Please check this transformation.
+
+smart_ink_clone/smartink/data/base_dataset.py:70:22: WARNING: Changing dataset.make_one_shot_iterator() to tf.compat.v1.data.make_one_shot_iterator(dataset). Please check this transformation.
+
+smart_ink_clone/smartink/data/base_dataset.py:73:22: WARNING: Changing dataset.make_initializable_iterator() to tf.compat.v1.data.make_initializable_iterator(dataset). Please check this transformation.
+
+smart_ink_clone/smartink/data/base_dataset.py:121:4: WARNING: *.save requires manuel check. (This warning is only applicable if the code saves a tf.Keras model) Keras model.save now saves to the Tensorflow SavedModel format by default, instead of HDF5. To continue saving to HDF5, add the argument save_format='h5' to the save() function.
+smart_ink_clone/smartink/data/base_dataset.py:167:20: WARNING: Changing dataset.make_one_shot_iterator() to tf.compat.v1.data.make_one_shot_iterator(dataset). Please check this transformation.
+
+--------------------------------------------------------------------------------
+File: smart_ink_clone/smartink/source/training_eager.py
+--------------------------------------------------------------------------------
+smart_ink_clone/smartink/source/training_eager.py:43:30: ERROR: Using member tf.contrib.checkpoint.CheckpointManager in deprecated module tf.contrib. tf.contrib.checkpoint.CheckpointManager cannot be converted automatically. tf.contrib will not be distributed with TensorFlow 2.0, please consider an alternative in non-contrib TensorFlow, a community-maintained repository such as tensorflow/addons, or fork the required code.
+smart_ink_clone/smartink/source/training_eager.py:113:10: WARNING: Changing dataset.make_one_shot_iterator() to tf.compat.v1.data.make_one_shot_iterator(dataset). Please check this transformation.
+
+smart_ink_clone/smartink/source/training_eager.py:136:8: WARNING: Changing dataset.make_one_shot_iterator() to tf.compat.v1.data.make_one_shot_iterator(dataset). Please check this transformation.
+
+--------------------------------------------------------------------------------
+File: smart_ink_clone/analysis_eager.py
+--------------------------------------------------------------------------------
+smart_ink_clone/analysis_eager.py:99:10: WARNING: Changing dataset.make_one_shot_iterator() to tf.compat.v1.data.make_one_shot_iterator(dataset). Please check this transformation.
+
+--------------------------------------------------------------------------------
+File: smart_ink_clone/deprecated/ink_training_estimator_embedding.py
+--------------------------------------------------------------------------------
+smart_ink_clone/deprecated/ink_training_estimator_embedding.py:134:14: ERROR: Using member tf.contrib.training.HParams in deprecated module tf.contrib. tf.contrib.training.HParams cannot be converted automatically. tf.contrib will not be distributed with TensorFlow 2.0, please consider an alternative in non-contrib TensorFlow, a community-maintained repository such as tensorflow/addons, or fork the required code.
+--------------------------------------------------------------------------------
+File: smart_ink_clone/visualization/projector_embedding_data.py
+--------------------------------------------------------------------------------
+smart_ink_clone/visualization/projector_embedding_data.py:274:2: WARNING: *.save requires manuel check. (This warning is only applicable if the code saves a tf.Keras model) Keras model.save now saves to the Tensorflow SavedModel format by default, instead of HDF5. To continue saving to HDF5, add the argument save_format='h5' to the save() function.
+--------------------------------------------------------------------------------
+File: smart_ink_clone/visualization/projector_checkpoint.py
+--------------------------------------------------------------------------------
+smart_ink_clone/visualization/projector_checkpoint.py:50:4: WARNING: *.save requires manuel check. (This warning is only applicable if the code saves a tf.Keras model) Keras model.save now saves to the Tensorflow SavedModel format by default, instead of HDF5. To continue saving to HDF5, add the argument save_format='h5' to the save() function.
+--------------------------------------------------------------------------------
+File: smart_ink_clone/smartink/source/training_static.py
+--------------------------------------------------------------------------------
+smart_ink_clone/smartink/source/training_static.py:289:8: WARNING: *.save requires manual check. (This warning is only applicable if the code saves a tf.Keras model) Keras model.save now saves to the Tensorflow SavedModel format by default, instead of HDF5. To continue saving to HDF5, add the argument save_format='h5' to the save() function.
+================================================================================
+Detailed log follows:
+
+================================================================================
+================================================================================
+Input tree: 'smart_ink_clone/'
+================================================================================
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/ink_training_static_predictive.py'
+ outputting to 'smart_ink_tf2/ink_training_static_predictive.py'
+--------------------------------------------------------------------------------
+
+65:2: INFO: Renamed 'tf.app.run' to 'tf.compat.v1.app.run'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/ink_training_static_embedding.py'
+ outputting to 'smart_ink_tf2/ink_training_static_embedding.py'
+--------------------------------------------------------------------------------
+
+66:2: INFO: Renamed 'tf.app.run' to 'tf.compat.v1.app.run'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/ink_training_eager_predictive.py'
+ outputting to 'smart_ink_tf2/ink_training_eager_predictive.py'
+--------------------------------------------------------------------------------
+
+10:12: INFO: Renamed 'tf.ConfigProto' to 'tf.compat.v1.ConfigProto'
+13:0: INFO: Renamed 'tf.enable_eager_execution' to 'tf.compat.v1.enable_eager_execution'
+60:2: INFO: Renamed 'tf.app.run' to 'tf.compat.v1.app.run'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/analysis_eager.py'
+ outputting to 'smart_ink_tf2/analysis_eager.py'
+--------------------------------------------------------------------------------
+
+27:0: INFO: Renamed 'tf.enable_eager_execution' to 'tf.compat.v1.enable_eager_execution'
+47:4: INFO: Renamed 'tf.reset_default_graph' to 'tf.compat.v1.reset_default_graph'
+99:10: WARNING: Changing dataset.make_one_shot_iterator() to tf.compat.v1.data.make_one_shot_iterator(dataset). Please check this transformation.
+
+107:2: INFO: Renamed 'tf.app.run' to 'tf.compat.v1.app.run'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/run_leonhard_eval.py'
+ outputting to 'smart_ink_tf2/run_leonhard_eval.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/run_leonhard_batch.py'
+ outputting to 'smart_ink_tf2/run_leonhard_batch.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/ink_training_eager_embedding.py'
+ outputting to 'smart_ink_tf2/ink_training_eager_embedding.py'
+--------------------------------------------------------------------------------
+
+10:12: INFO: Renamed 'tf.ConfigProto' to 'tf.compat.v1.ConfigProto'
+13:0: INFO: Renamed 'tf.enable_eager_execution' to 'tf.compat.v1.enable_eager_execution'
+55:2: INFO: Renamed 'tf.app.run' to 'tf.compat.v1.app.run'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/common/logger.py'
+ outputting to 'smart_ink_tf2/common/logger.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/common/constants.py'
+ outputting to 'smart_ink_tf2/common/constants.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/data_scripts/tfrecord_stroke_to_whole.py'
+ outputting to 'smart_ink_tf2/data_scripts/tfrecord_stroke_to_whole.py'
+--------------------------------------------------------------------------------
+
+6:0: INFO: Renamed 'tf.enable_eager_execution' to 'tf.compat.v1.enable_eager_execution'
+18:19: INFO: Renamed 'tf.python_io.TFRecordWriter' to 'tf.io.TFRecordWriter'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/data_scripts/didi_json_to_tfrecords.py'
+ outputting to 'smart_ink_tf2/data_scripts/didi_json_to_tfrecords.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/data_scripts/to_sketch_rnn_data.py'
+ outputting to 'smart_ink_tf2/data_scripts/to_sketch_rnn_data.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/deprecated/ink_training_estimator_embedding.py'
+ outputting to 'smart_ink_tf2/deprecated/ink_training_estimator_embedding.py'
+--------------------------------------------------------------------------------
+
+69:31: INFO: Renamed 'tf.train.get_global_step' to 'tf.compat.v1.train.get_global_step'
+70:2: INFO: tf.summary.scalar requires manual check. The TF 1.x summary API cannot be automatically migrated to TF 2.0, so symbols have been converted to tf.compat.v1.summary.* and must be migrated manually. Typical usage will only require changes to the summary writing logic, not to individual calls like scalar(). For examples of the new summary API, see the Effective TF 2.0 migration document or check the TF 2.0 TensorBoard tutorials.
+70:2: INFO: Renamed 'tf.summary.scalar' to 'tf.compat.v1.summary.scalar'
+72:14: INFO: Renamed 'tf.train.AdamOptimizer' to 'tf.compat.v1.train.AdamOptimizer'
+73:15: INFO: Renamed 'tf.get_collection' to 'tf.compat.v1.get_collection'
+73:33: INFO: Renamed 'tf.GraphKeys' to 'tf.compat.v1.GraphKeys'
+76:17: INFO: Renamed 'tf.trainable_variables' to 'tf.compat.v1.trainable_variables'
+85:18: INFO: Added keywords to args of function 'tf.gradients'
+93:47: INFO: Renamed 'tf.train.get_global_step' to 'tf.compat.v1.train.get_global_step'
+95:2: INFO: Renamed 'tf.logging.set_verbosity' to 'tf.compat.v1.logging.set_verbosity'
+95:27: INFO: Renamed 'tf.logging.INFO' to 'tf.compat.v1.logging.INFO'
+97:17: INFO: Renamed 'tf.train.LoggingTensorHook' to 'tf.estimator.LoggingTensorHook'
+100:15: INFO: Renamed 'tf.train.CheckpointSaverHook' to 'tf.estimator.CheckpointSaverHook'
+101:12: INFO: Renamed 'tf.train.Saver' to 'tf.compat.v1.train.Saver'
+116:6: INFO: tf.summary.scalar requires manual check. The TF 1.x summary API cannot be automatically migrated to TF 2.0, so symbols have been converted to tf.compat.v1.summary.* and must be migrated manually. Typical usage will only require changes to the summary writing logic, not to individual calls like scalar(). For examples of the new summary API, see the Effective TF 2.0 migration document or check the TF 2.0 TensorBoard tutorials.
+116:6: INFO: Renamed 'tf.summary.scalar' to 'tf.compat.v1.summary.scalar'
+134:14: ERROR: Using member tf.contrib.training.HParams in deprecated module tf.contrib. tf.contrib.training.HParams cannot be converted automatically. tf.contrib will not be distributed with TensorFlow 2.0, please consider an alternative in non-contrib TensorFlow, a community-maintained repository such as tensorflow/addons, or fork the required code.
+147:8: INFO: Renamed 'tf.gfile.Open' to 'tf.io.gfile.GFile'
+175:2: INFO: Renamed 'tf.app.run' to 'tf.compat.v1.app.run'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/deprecated/analysis_eager_embedding.py'
+ outputting to 'smart_ink_tf2/deprecated/analysis_eager_embedding.py'
+--------------------------------------------------------------------------------
+
+20:0: INFO: Renamed 'tf.enable_eager_execution' to 'tf.compat.v1.enable_eager_execution'
+431:2: INFO: Renamed 'tf.app.run' to 'tf.compat.v1.app.run'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/deprecated/eval_static.py'
+ outputting to 'smart_ink_tf2/deprecated/eval_static.py'
+--------------------------------------------------------------------------------
+
+46:18: INFO: Renamed 'tf.GPUOptions' to 'tf.compat.v1.GPUOptions'
+48:19: INFO: Renamed 'tf.Session' to 'tf.compat.v1.Session'
+48:37: INFO: Renamed 'tf.ConfigProto' to 'tf.compat.v1.ConfigProto'
+52:10: INFO: Renamed 'tf.gfile.Open' to 'tf.io.gfile.GFile'
+79:17: INFO: Renamed 'tf.trainable_variables' to 'tf.compat.v1.trainable_variables'
+83:21: INFO: Renamed 'tf.global_variables_initializer' to 'tf.compat.v1.global_variables_initializer'
+84:12: INFO: Renamed 'tf.train.Saver' to 'tf.compat.v1.train.Saver'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/deprecated/ink_eval_eager_embedding.py'
+ outputting to 'smart_ink_tf2/deprecated/ink_eval_eager_embedding.py'
+--------------------------------------------------------------------------------
+
+19:0: INFO: Renamed 'tf.enable_eager_execution' to 'tf.compat.v1.enable_eager_execution'
+81:6: INFO: Renamed 'tf.reset_default_graph' to 'tf.compat.v1.reset_default_graph'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/deprecated/ink_eval_static_embedding.py'
+ outputting to 'smart_ink_tf2/deprecated/ink_eval_static_embedding.py'
+--------------------------------------------------------------------------------
+
+40:2: INFO: Renamed 'tf.app.run' to 'tf.compat.v1.app.run'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/deprecated/analysis_eager_predictive_extensive.py'
+ outputting to 'smart_ink_tf2/deprecated/analysis_eager_predictive_extensive.py'
+--------------------------------------------------------------------------------
+
+20:0: INFO: Renamed 'tf.enable_eager_execution' to 'tf.compat.v1.enable_eager_execution'
+427:6: INFO: Renamed 'tf.reset_default_graph' to 'tf.compat.v1.reset_default_graph'
+451:2: INFO: Renamed 'tf.app.run' to 'tf.compat.v1.app.run'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/deprecated/eval_eager_nll.py'
+ outputting to 'smart_ink_tf2/deprecated/eval_eager_nll.py'
+--------------------------------------------------------------------------------
+
+15:0: INFO: Renamed 'tf.enable_eager_execution' to 'tf.compat.v1.enable_eager_execution'
+51:10: INFO: Renamed 'tf.gfile.Open' to 'tf.io.gfile.GFile'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/deprecated/analysis_eager_predictive.py'
+ outputting to 'smart_ink_tf2/deprecated/analysis_eager_predictive.py'
+--------------------------------------------------------------------------------
+
+23:0: INFO: Renamed 'tf.enable_eager_execution' to 'tf.compat.v1.enable_eager_execution'
+219:8: INFO: Renamed 'tf.gfile.Open' to 'tf.io.gfile.GFile'
+381:24: INFO: Added keywords to args of function 'tf.transpose'
+475:6: INFO: Renamed 'tf.reset_default_graph' to 'tf.compat.v1.reset_default_graph'
+509:10: WARNING: Changing dataset.make_one_shot_iterator() to tf.compat.v1.data.make_one_shot_iterator(dataset). Please check this transformation.
+
+517:2: INFO: Renamed 'tf.app.run' to 'tf.compat.v1.app.run'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/visualization/projector_checkpoint.py'
+ outputting to 'smart_ink_tf2/visualization/projector_checkpoint.py'
+--------------------------------------------------------------------------------
+
+46:7: INFO: Renamed 'tf.Session' to 'tf.compat.v1.Session'
+47:12: INFO: Renamed 'tf.train.Saver' to 'tf.compat.v1.train.Saver'
+50:4: WARNING: *.save requires manual check. (This warning is only applicable if the code saves a tf.Keras model) Keras model.save now saves to the Tensorflow SavedModel format by default, instead of HDF5. To continue saving to HDF5, add the argument save_format='h5' to the save() function.
+60:35: INFO: tf.summary.FileWriter requires manual check. The TF 1.x summary API cannot be automatically migrated to TF 2.0, so symbols have been converted to tf.compat.v1.summary.* and must be migrated manually. Typical usage will only require changes to the summary writing logic, not to individual calls like scalar(). For examples of the new summary API, see the Effective TF 2.0 migration document or check the TF 2.0 TensorBoard tutorials.
+60:35: INFO: Renamed 'tf.summary.FileWriter' to 'tf.compat.v1.summary.FileWriter'
+70:2: INFO: Renamed 'tf.app.run' to 'tf.compat.v1.app.run'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/visualization/projector_embedding_data.py'
+ outputting to 'smart_ink_tf2/visualization/projector_embedding_data.py'
+--------------------------------------------------------------------------------
+
+32:0: INFO: Renamed 'tf.enable_eager_execution' to 'tf.compat.v1.enable_eager_execution'
+274:2: WARNING: *.save requires manual check. (This warning is only applicable if the code saves a tf.Keras model) Keras model.save now saves to the Tensorflow SavedModel format by default, instead of HDF5. To continue saving to HDF5, add the argument save_format='h5' to the save() function.
+308:2: INFO: Renamed 'tf.app.run' to 'tf.compat.v1.app.run'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/visualization/visualization.py'
+ outputting to 'smart_ink_tf2/visualization/visualization.py'
+--------------------------------------------------------------------------------
+
+347:8: WARNING: *.save requires manual check. (This warning is only applicable if the code saves a tf.Keras model) Keras model.save now saves to the Tensorflow SavedModel format by default, instead of HDF5. To continue saving to HDF5, add the argument save_format='h5' to the save() function.
+357:11: INFO: Renamed 'tf.gfile.Open' to 'tf.io.gfile.GFile'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/smartink/util/hooks.py'
+ outputting to 'smart_ink_tf2/smartink/util/hooks.py'
+--------------------------------------------------------------------------------
+
+6:20: INFO: Renamed 'tf.train.SessionRunHook' to 'tf.estimator.SessionRunHook'
+25:30: INFO: Renamed 'tf.train.CheckpointSaverListener' to 'tf.estimator.CheckpointSaverListener'
+60:25: INFO: Renamed 'tf.placeholder' to 'tf.compat.v1.placeholder'
+70:20: INFO: Renamed 'tf.trainable_variables' to 'tf.compat.v1.trainable_variables'
+77:4: INFO: Renamed 'tf.logging.info' to 'tf.compat.v1.logging.info'
+109:27: INFO: Renamed 'tf.gfile.Glob' to 'tf.io.gfile.glob'
+112:10: INFO: Renamed 'tf.gfile.Remove' to 'tf.io.gfile.remove'
+115:27: INFO: Renamed 'tf.gfile.Glob' to 'tf.io.gfile.glob'
+118:10: INFO: Renamed 'tf.gfile.Rename' to 'tf.io.gfile.rename'
+122:8: INFO: Renamed 'tf.logging.info' to 'tf.compat.v1.logging.info'
+131:25: INFO: Renamed 'tf.gfile.Glob' to 'tf.io.gfile.glob'
+134:8: INFO: Renamed 'tf.gfile.Remove' to 'tf.io.gfile.remove'
+137:23: INFO: Renamed 'tf.gfile.Glob' to 'tf.io.gfile.glob'
+140:6: INFO: Renamed 'tf.gfile.Rename' to 'tf.io.gfile.rename'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/smartink/util/utils.py'
+ outputting to 'smart_ink_tf2/smartink/util/utils.py'
+--------------------------------------------------------------------------------
+
+28:25: INFO: tf.summary.merge_all requires manual check. The TF 1.x summary API cannot be automatically migrated to TF 2.0, so symbols have been converted to tf.compat.v1.summary.* and must be migrated manually. Typical usage will only require changes to the summary writing logic, not to individual calls like scalar(). For examples of the new summary API, see the Effective TF 2.0 migration document or check the TF 2.0 TensorBoard tutorials.
+28:25: INFO: Renamed 'tf.summary.merge_all' to 'tf.compat.v1.summary.merge_all'
+37:6: INFO: tf.summary.scalar requires manual check. The TF 1.x summary API cannot be automatically migrated to TF 2.0, so symbols have been converted to tf.compat.v1.summary.* and must be migrated manually. Typical usage will only require changes to the summary writing logic, not to individual calls like scalar(). For examples of the new summary API, see the Effective TF 2.0 migration document or check the TF 2.0 TensorBoard tutorials.
+37:6: INFO: Renamed 'tf.summary.scalar' to 'tf.compat.v1.summary.scalar'
+57:30: INFO: Renamed 'tf.placeholder' to 'tf.compat.v1.placeholder'
+64:28: INFO: Renamed 'tf.placeholder' to 'tf.compat.v1.placeholder'
+158:10: INFO: tf.train.exponential_decay requires manual check. To use learning rate decay schedules with TensorFlow 2.0, switch to the schedules in `tf.keras.optimizers.schedules`.
+
+158:10: INFO: Renamed 'tf.train.exponential_decay' to 'tf.compat.v1.train.exponential_decay'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/smartink/util/ink.py'
+ outputting to 'smart_ink_tf2/smartink/util/ink.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/smartink/source/training_static.py'
+ outputting to 'smart_ink_tf2/smartink/source/training_static.py'
+--------------------------------------------------------------------------------
+
+36:18: INFO: Renamed 'tf.GPUOptions' to 'tf.compat.v1.GPUOptions'
+38:19: INFO: Renamed 'tf.Session' to 'tf.compat.v1.Session'
+38:37: INFO: Renamed 'tf.ConfigProto' to 'tf.compat.v1.ConfigProto'
+39:23: INFO: Renamed 'tf.train.get_or_create_global_step' to 'tf.compat.v1.train.get_or_create_global_step'
+46:21: INFO: Renamed 'tf.train.AdamOptimizer' to 'tf.compat.v1.train.AdamOptimizer'
+57:10: INFO: Renamed 'tf.gfile.Open' to 'tf.io.gfile.GFile'
+88:17: INFO: Renamed 'tf.get_collection' to 'tf.compat.v1.get_collection'
+88:35: INFO: Renamed 'tf.GraphKeys' to 'tf.compat.v1.GraphKeys'
+90:19: INFO: Renamed 'tf.trainable_variables' to 'tf.compat.v1.trainable_variables'
+111:20: INFO: Added keywords to args of function 'tf.gradients'
+120:22: INFO: Renamed 'tf.train.get_global_step' to 'tf.compat.v1.train.get_global_step'
+123:17: INFO: Renamed 'tf.trainable_variables' to 'tf.compat.v1.trainable_variables'
+130:26: INFO: tf.summary.FileWriter requires manual check. The TF 1.x summary API cannot be automatically migrated to TF 2.0, so symbols have been converted to tf.compat.v1.summary.* and must be migrated manually. Typical usage will only require changes to the summary writing logic, not to individual calls like scalar(). For examples of the new summary API, see the Effective TF 2.0 migration document or check the TF 2.0 TensorBoard tutorials.
+130:26: INFO: Renamed 'tf.summary.FileWriter' to 'tf.compat.v1.summary.FileWriter'
+166:21: INFO: Renamed 'tf.global_variables_initializer' to 'tf.compat.v1.global_variables_initializer'
+167:17: INFO: Renamed 'tf.train.Saver' to 'tf.compat.v1.train.Saver'
+289:8: WARNING: *.save requires manual check. (This warning is only applicable if the code saves a tf.Keras model) Keras model.save now saves to the Tensorflow SavedModel format by default, instead of HDF5. To continue saving to HDF5, add the argument save_format='h5' to the save() function.
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/smartink/source/eval_eager.py'
+ outputting to 'smart_ink_tf2/smartink/source/eval_eager.py'
+--------------------------------------------------------------------------------
+
+29:0: INFO: Renamed 'tf.enable_eager_execution' to 'tf.compat.v1.enable_eager_execution'
+73:10: INFO: Renamed 'tf.gfile.Open' to 'tf.io.gfile.GFile'
+301:24: INFO: Added keywords to args of function 'tf.transpose'
+330:29: INFO: Added keywords to args of function 'tf.transpose'
+330:72: INFO: Added keywords to args of function 'tf.shape'
+495:22: INFO: Added keywords to args of function 'tf.transpose'
+537:22: INFO: Added keywords to args of function 'tf.transpose'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/smartink/source/eval_metrics.py'
+ outputting to 'smart_ink_tf2/smartink/source/eval_metrics.py'
+--------------------------------------------------------------------------------
+
+63:12: INFO: Added keywords to args of function 'tf.reduce_sum'
+63:34: INFO: Added keywords to args of function 'tf.reduce_sum'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/smartink/source/training_static_predictive.py'
+ outputting to 'smart_ink_tf2/smartink/source/training_static_predictive.py'
+--------------------------------------------------------------------------------
+
+38:18: INFO: Renamed 'tf.GPUOptions' to 'tf.compat.v1.GPUOptions'
+40:19: INFO: Renamed 'tf.Session' to 'tf.compat.v1.Session'
+40:37: INFO: Renamed 'tf.ConfigProto' to 'tf.compat.v1.ConfigProto'
+41:23: INFO: Renamed 'tf.train.get_or_create_global_step' to 'tf.compat.v1.train.get_or_create_global_step'
+48:21: INFO: Renamed 'tf.train.AdamOptimizer' to 'tf.compat.v1.train.AdamOptimizer'
+59:10: INFO: Renamed 'tf.gfile.Open' to 'tf.io.gfile.GFile'
+88:17: INFO: Renamed 'tf.get_collection' to 'tf.compat.v1.get_collection'
+88:35: INFO: Renamed 'tf.GraphKeys' to 'tf.compat.v1.GraphKeys'
+90:19: INFO: Renamed 'tf.trainable_variables' to 'tf.compat.v1.trainable_variables'
+108:20: INFO: Added keywords to args of function 'tf.gradients'
+117:22: INFO: Renamed 'tf.train.get_global_step' to 'tf.compat.v1.train.get_global_step'
+120:17: INFO: Renamed 'tf.trainable_variables' to 'tf.compat.v1.trainable_variables'
+127:26: INFO: tf.summary.FileWriter requires manual check. The TF 1.x summary API cannot be automatically migrated to TF 2.0, so symbols have been converted to tf.compat.v1.summary.* and must be migrated manually. Typical usage will only require changes to the summary writing logic, not to individual calls like scalar(). For examples of the new summary API, see the Effective TF 2.0 migration document or check the TF 2.0 TensorBoard tutorials.
+127:26: INFO: Renamed 'tf.summary.FileWriter' to 'tf.compat.v1.summary.FileWriter'
+163:21: INFO: Renamed 'tf.global_variables_initializer' to 'tf.compat.v1.global_variables_initializer'
+164:17: INFO: Renamed 'tf.train.Saver' to 'tf.compat.v1.train.Saver'
+262:8: WARNING: *.save requires manual check. (This warning is only applicable if the code saves a tf.Keras model) Keras model.save now saves to the Tensorflow SavedModel format by default, instead of HDF5. To continue saving to HDF5, add the argument save_format='h5' to the save() function.
+322:22: INFO: Renamed 'tf.train.Saver' to 'tf.compat.v1.train.Saver'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/smartink/source/training_eager.py'
+ outputting to 'smart_ink_tf2/smartink/source/training_eager.py'
+--------------------------------------------------------------------------------
+
+10:0: INFO: Renamed 'tf.enable_eager_execution' to 'tf.compat.v1.enable_eager_execution'
+43:30: ERROR: Using member tf.contrib.checkpoint.CheckpointManager in deprecated module tf.contrib. tf.contrib.checkpoint.CheckpointManager cannot be converted automatically. tf.contrib will not be distributed with TensorFlow 2.0, please consider an alternative in non-contrib TensorFlow, a community-maintained repository such as tensorflow/addons, or fork the required code.
+113:10: WARNING: Changing dataset.make_one_shot_iterator() to tf.compat.v1.data.make_one_shot_iterator(dataset). Please check this transformation.
+
+136:8: WARNING: Changing dataset.make_one_shot_iterator() to tf.compat.v1.data.make_one_shot_iterator(dataset). Please check this transformation.
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/smartink/models/base_model.py'
+ outputting to 'smart_ink_tf2/smartink/models/base_model.py'
+--------------------------------------------------------------------------------
+
+73:22: INFO: Renamed 'tf.train.get_or_create_global_step' to 'tf.compat.v1.train.get_or_create_global_step'
+82:10: INFO: tf.summary.scalar requires manual check. The TF 1.x summary API cannot be automatically migrated to TF 2.0, so symbols have been converted to tf.compat.v1.summary.* and must be migrated manually. Typical usage will only require changes to the summary writing logic, not to individual calls like scalar(). For examples of the new summary API, see the Effective TF 2.0 migration document or check the TF 2.0 TensorBoard tutorials.
+82:10: INFO: Renamed 'tf.summary.scalar' to 'tf.compat.v1.summary.scalar'
+111:24: INFO: Added keywords to args of function 'tf.reduce_sum'
+120:24: INFO: Added keywords to args of function 'tf.reduce_sum'
+133:24: INFO: tf.losses.sigmoid_cross_entropy requires manual check. tf.losses have been replaced with object oriented versions in TF 2.0 and after. The loss function calls have been converted to compat.v1 for backward compatibility. Please update these calls to the TF 2.0 versions.
+133:24: INFO: Renamed 'tf.losses.sigmoid_cross_entropy' to 'tf.compat.v1.losses.sigmoid_cross_entropy'
+136:28: INFO: Renamed 'tf.GraphKeys' to 'tf.compat.v1.GraphKeys'
+137:22: INFO: Renamed 'tf.losses.Reduction' to 'tf.compat.v1.losses.Reduction'
+149:24: INFO: Added keywords to args of function 'tf.reduce_sum'
+167:53: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+169:22: INFO: Added keywords to args of function 'tf.reduce_sum'
+169:47: INFO: Added keywords to args of function 'tf.reduce_sum'
+171:22: INFO: Added keywords to args of function 'tf.reduce_mean'
+173:18: INFO: Added keywords to args of function 'tf.reduce_mean'
+184:6: INFO: Renamed 'tf.add_to_collection' to 'tf.compat.v1.add_to_collection'
+188:46: INFO: tf.metrics.mean requires manual check. tf.metrics have been replaced with object oriented versions in TF 2.0 and after. The metric function calls have been converted to compat.v1 for backward compatibility. Please update these calls to the TF 2.0 versions.
+188:46: INFO: Renamed 'tf.metrics.mean' to 'tf.compat.v1.metrics.mean'
+194:4: INFO: Renamed 'tf.add_to_collection' to 'tf.compat.v1.add_to_collection'
+197:33: INFO: tf.metrics.mean requires manual check. tf.metrics have been replaced with object oriented versions in TF 2.0 and after. The metric function calls have been converted to compat.v1 for backward compatibility. Please update these calls to the TF 2.0 versions.
+197:33: INFO: Renamed 'tf.metrics.mean' to 'tf.compat.v1.metrics.mean'
+234:29: INFO: Added keywords to args of function 'tf.shape'
+239:8: INFO: Added keywords to args of function 'tf.transpose'
+240:8: INFO: Added keywords to args of function 'tf.transpose'
+245:29: INFO: Added keywords to args of function 'tf.transpose'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/smartink/models/common/output.py'
+ outputting to 'smart_ink_tf2/smartink/models/common/output.py'
+--------------------------------------------------------------------------------
+
+32:23: INFO: tf.random_normal_initializer requires manual check. Initializers no longer have the dtype argument in the constructor or partition_info argument in the __call__ method.
+The calls have been converted to compat.v1 for safety (even though they may already have been correct).
+32:23: INFO: Renamed 'tf.random_normal_initializer' to 'tf.compat.v1.random_normal_initializer'
+122:36: INFO: Added keywords to args of function 'tf.shape'
+158:16: INFO: Added keywords to args of function 'tf.shape'
+165:9: INFO: Added keywords to args of function 'tf.transpose'
+166:12: INFO: Added keywords to args of function 'tf.transpose'
+171:15: INFO: Renamed 'tf.random_normal' to 'tf.random.normal'
+171:32: INFO: Added keywords to args of function 'tf.shape'
+242:36: INFO: Added keywords to args of function 'tf.shape'
+316:17: INFO: Added keywords to args of function 'tf.shape'
+317:14: INFO: Added keywords to args of function 'tf.shape'
+327:9: INFO: Added keywords to args of function 'tf.transpose'
+328:12: INFO: Added keywords to args of function 'tf.transpose'
+332:13: INFO: Renamed 'tf.log' to 'tf.math.log'
+336:10: INFO: Added keywords to args of function 'tf.argmax'
+345:8: INFO: Added keywords to args of function 'tf.transpose'
+346:8: INFO: Added keywords to args of function 'tf.transpose'
+356:13: INFO: Renamed 'tf.random_normal' to 'tf.random.normal'
+357:10: INFO: Added keywords to args of function 'tf.shape'
+465:16: INFO: Added keywords to args of function 'tf.shape'
+474:9: INFO: Added keywords to args of function 'tf.transpose'
+475:12: INFO: Added keywords to args of function 'tf.transpose'
+479:13: INFO: Renamed 'tf.log' to 'tf.math.log'
+486:10: INFO: Added keywords to args of function 'tf.argmax'
+495:8: INFO: Added keywords to args of function 'tf.transpose'
+496:8: INFO: Added keywords to args of function 'tf.transpose'
+506:13: INFO: Renamed 'tf.random_normal' to 'tf.random.normal'
+507:10: INFO: Added keywords to args of function 'tf.shape'
+534:16: INFO: Added keywords to args of function 'tf.shape'
+541:9: INFO: Added keywords to args of function 'tf.transpose'
+542:12: INFO: Added keywords to args of function 'tf.transpose'
+548:15: INFO: Renamed 'tf.random_normal' to 'tf.random.normal'
+548:32: INFO: Added keywords to args of function 'tf.shape'
+571:16: INFO: Added keywords to args of function 'tf.shape'
+585:15: INFO: Renamed 'tf.random_normal' to 'tf.random.normal'
+585:32: INFO: Added keywords to args of function 'tf.shape'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/smartink/models/common/building_blocks.py'
+ outputting to 'smart_ink_tf2/smartink/models/common/building_blocks.py'
+--------------------------------------------------------------------------------
+
+45:11: INFO: `name` passed to `name_scope`. Because you may be re-entering an existing scope, it is not safe to convert automatically,  the v2 name_scope does not support re-entering scopes by name.
+
+45:11: INFO: Renamed 'tf.name_scope' to 'tf.compat.v1.name_scope'
+177:19: INFO: Renamed 'tf.keras.layers.CuDNNLSTM' to 'tf.compat.v1.keras.layers.CuDNNLSTM'
+179:19: INFO: Renamed 'tf.keras.layers.CuDNNGRU' to 'tf.compat.v1.keras.layers.CuDNNGRU'
+227:23: INFO: tf.random_normal_initializer requires manual check. Initializers no longer have the dtype argument in the constructor or partition_info argument in the __call__ method.
+The calls have been converted to compat.v1 for safety (even though they may already have been correct).
+227:23: INFO: Renamed 'tf.random_normal_initializer' to 'tf.compat.v1.random_normal_initializer'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/smartink/models/ink/predictive_models.py'
+ outputting to 'smart_ink_tf2/smartink/models/ink/predictive_models.py'
+--------------------------------------------------------------------------------
+
+106:16: INFO: Added keywords to args of function 'tf.shape'
+107:14: INFO: Added keywords to args of function 'tf.shape'
+115:36: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+126:10: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+132:36: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+141:21: INFO: Added keywords to args of function 'tf.reduce_min'
+157:19: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+158:10: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+164:33: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+165:35: INFO: Added keywords to args of function 'tf.transpose'
+166:35: INFO: Added keywords to args of function 'tf.transpose'
+169:19: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+170:10: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+176:33: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+177:35: INFO: Added keywords to args of function 'tf.transpose'
+178:35: INFO: Added keywords to args of function 'tf.transpose'
+181:19: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+182:10: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+188:33: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+189:35: INFO: Added keywords to args of function 'tf.transpose'
+190:35: INFO: Added keywords to args of function 'tf.transpose'
+193:19: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+194:10: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+200:33: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+201:35: INFO: Added keywords to args of function 'tf.transpose'
+202:35: INFO: Added keywords to args of function 'tf.transpose'
+204:16: INFO: Added keywords to args of function 'tf.reduce_max'
+206:27: INFO: Added keywords to args of function 'tf.pad'
+207:27: INFO: Added keywords to args of function 'tf.pad'
+208:27: INFO: Added keywords to args of function 'tf.pad'
+209:27: INFO: Added keywords to args of function 'tf.pad'
+279:16: INFO: Added keywords to args of function 'tf.shape'
+289:38: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+295:38: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+296:50: INFO: Added keywords to args of function 'tf.reduce_max'
+305:40: INFO: Added keywords to args of function 'tf.shape'
+331:18: INFO: Added keywords to args of function 'tf.shape'
+344:18: INFO: Added keywords to args of function 'tf.shape'
+461:33: INFO: tf.metrics.mean requires manual check. tf.metrics have been replaced with object oriented versions in TF 2.0 and after. The metric function calls have been converted to compat.v1 for backward compatibility. Please update these calls to the TF 2.0 versions.
+461:33: INFO: Renamed 'tf.metrics.mean' to 'tf.compat.v1.metrics.mean'
+478:25: INFO: Added keywords to args of function 'tf.reduce_max'
+479:19: INFO: Added keywords to args of function 'tf.shape'
+526:19: INFO: Added keywords to args of function 'tf.transpose'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/smartink/models/stroke/t_emb.py'
+ outputting to 'smart_ink_tf2/smartink/models/stroke/t_emb.py'
+--------------------------------------------------------------------------------
+
+223:20: INFO: Added keywords to args of function 'tf.shape'
+240:17: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+241:37: INFO: Added keywords to args of function 'tf.shape'
+242:16: INFO: Added keywords to args of function 'tf.shape'
+242:50: INFO: Added keywords to args of function 'tf.shape'
+265:16: INFO: Added keywords to args of function 'tf.shape'
+266:15: INFO: Added keywords to args of function 'tf.shape'
+267:14: INFO: Added keywords to args of function 'tf.reduce_max'
+275:11: INFO: Added keywords to args of function 'tf.pad'
+390:25: INFO: Added keywords to args of function 'tf.shape'
+394:23: INFO: Added keywords to args of function 'tf.shape'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/smartink/models/stroke/cnn.py'
+ outputting to 'smart_ink_tf2/smartink/models/stroke/cnn.py'
+--------------------------------------------------------------------------------
+
+171:17: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+172:37: INFO: Added keywords to args of function 'tf.shape'
+173:16: INFO: Added keywords to args of function 'tf.shape'
+173:50: INFO: Added keywords to args of function 'tf.shape'
+228:17: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+229:37: INFO: Added keywords to args of function 'tf.shape'
+230:16: INFO: Added keywords to args of function 'tf.shape'
+230:50: INFO: Added keywords to args of function 'tf.shape'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/smartink/models/stroke/seq2seq.py'
+ outputting to 'smart_ink_tf2/smartink/models/stroke/seq2seq.py'
+--------------------------------------------------------------------------------
+
+160:14: INFO: tf.random_normal_initializer requires manual check. Initializers no longer have the dtype argument in the constructor or partition_info argument in the __call__ method.
+The calls have been converted to compat.v1 for safety (even though they may already have been correct).
+160:14: INFO: Renamed 'tf.random_normal_initializer' to 'tf.compat.v1.random_normal_initializer'
+283:19: INFO: Added keywords to args of function 'tf.shape'
+325:17: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+326:37: INFO: Added keywords to args of function 'tf.shape'
+327:16: INFO: Added keywords to args of function 'tf.shape'
+327:50: INFO: Added keywords to args of function 'tf.shape'
+344:16: INFO: Added keywords to args of function 'tf.reduce_max'
+398:21: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+400:29: INFO: Added keywords to args of function 'tf.shape'
+401:18: INFO: Added keywords to args of function 'tf.shape'
+402:18: INFO: Added keywords to args of function 'tf.shape'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/smartink/models/sequence/transformer.py'
+ outputting to 'smart_ink_tf2/smartink/models/sequence/transformer.py'
+--------------------------------------------------------------------------------
+
+83:43: INFO: Added keywords to args of function 'tf.shape'
+123:12: INFO: Added keywords to args of function 'tf.shape'
+128:15: INFO: Added keywords to args of function 'tf.shape'
+175:11: INFO: Added keywords to args of function 'tf.transpose'
+178:17: INFO: Added keywords to args of function 'tf.shape'
+196:23: INFO: Added keywords to args of function 'tf.transpose'
+306:16: INFO: Added keywords to args of function 'tf.shape'
+349:16: INFO: Added keywords to args of function 'tf.shape'
+516:17: INFO: Added keywords to args of function 'tf.shape'
+517:16: INFO: Added keywords to args of function 'tf.shape'
+518:19: INFO: Added keywords to args of function 'tf.shape'
+524:16: INFO: Added keywords to args of function 'tf.norm'
+532:47: INFO: Added keywords to args of function 'tf.shape'
+538:16: INFO: Added keywords to args of function 'tf.shape'
+562:16: INFO: Added keywords to args of function 'tf.shape'
+664:18: INFO: Added keywords to args of function 'tf.shape'
+761:47: INFO: Added keywords to args of function 'tf.shape'
+883:36: INFO: Added keywords to args of function 'tf.shape'
+915:17: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+916:37: INFO: Added keywords to args of function 'tf.shape'
+917:16: INFO: Added keywords to args of function 'tf.shape'
+917:50: INFO: Added keywords to args of function 'tf.shape'
+968:25: INFO: Added keywords to args of function 'tf.reduce_max'
+969:19: INFO: Added keywords to args of function 'tf.shape'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/smartink/models/sequence/rnn.py'
+ outputting to 'smart_ink_tf2/smartink/models/sequence/rnn.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/smartink/config/configuration.py'
+ outputting to 'smart_ink_tf2/smartink/config/configuration.py'
+--------------------------------------------------------------------------------
+
+151:8: INFO: Renamed 'tf.gfile.Open' to 'tf.io.gfile.GFile'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/smartink/config/config_predictive_ink.py'
+ outputting to 'smart_ink_tf2/smartink/config/config_predictive_ink.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/smartink/config/config_embedding.py'
+ outputting to 'smart_ink_tf2/smartink/config/config_embedding.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/smartink/data/base_dataset.py'
+ outputting to 'smart_ink_tf2/smartink/data/base_dataset.py'
+--------------------------------------------------------------------------------
+
+66:22: WARNING: Changing dataset.make_one_shot_iterator() to tf.compat.v1.data.make_one_shot_iterator(dataset). Please check this transformation.
+
+70:22: WARNING: Changing dataset.make_one_shot_iterator() to tf.compat.v1.data.make_one_shot_iterator(dataset). Please check this transformation.
+
+73:22: WARNING: Changing dataset.make_initializable_iterator() to tf.compat.v1.data.make_initializable_iterator(dataset). Please check this transformation.
+
+92:16: INFO: Renamed 'tf.gfile.Open' to 'tf.io.gfile.GFile'
+107:16: INFO: Renamed 'tf.gfile.Open' to 'tf.io.gfile.GFile'
+121:4: WARNING: *.save requires manual check. (This warning is only applicable if the code saves a tf.Keras model) Keras model.save now saves to the Tensorflow SavedModel format by default, instead of HDF5. To continue saving to HDF5, add the argument save_format='h5' to the save() function.
+167:20: WARNING: Changing dataset.make_one_shot_iterator() to tf.compat.v1.data.make_one_shot_iterator(dataset). Please check this transformation.
+
+256:15: INFO: Added keywords to args of function 'tf.reduce_sum'
+294:20: INFO: Added keywords to args of function 'tf.transpose'
+299:16: INFO: Added keywords to args of function 'tf.transpose'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/smartink/data/stroke_dataset.py'
+ outputting to 'smart_ink_tf2/smartink/data/stroke_dataset.py'
+--------------------------------------------------------------------------------
+
+206:42: INFO: Added keywords to args of function 'tf.shape'
+207:20: INFO: Added keywords to args of function 'tf.pad'
+255:10: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+255:65: INFO: Added keywords to args of function 'tf.reduce_max'
+264:10: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+269:26: INFO: Renamed 'tf.ceil' to 'tf.math.ceil'
+287:16: INFO: Added keywords to args of function 'tf.shape'
+292:16: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+292:36: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+296:15: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+300:15: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+300:37: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+304:15: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+308:15: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+308:37: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+330:16: INFO: Added keywords to args of function 'tf.shape'
+337:16: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+337:36: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+343:15: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+347:15: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+347:37: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+352:14: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+352:35: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+355:14: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+355:35: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+363:15: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+367:15: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+367:37: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+385:21: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+404:8: INFO: Added keywords to args of function 'tf.cond'
+410:8: INFO: Added keywords to args of function 'tf.cond'
+467:20: INFO: Added keywords to args of function 'tf.cond'
+467:48: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+468:36: INFO: Added keywords to args of function 'tf.reverse_sequence'
+478:30: INFO: Added keywords to args of function 'tf.reduce_sum'
+507:21: INFO: Added keywords to args of function 'tf.shape'
+507:45: INFO: Added keywords to args of function 'tf.shape'
+515:19: INFO: Added keywords to args of function 'tf.shape'
+515:41: INFO: Added keywords to args of function 'tf.shape'
+653:15: INFO: Renamed 'tf.VarLenFeature' to 'tf.io.VarLenFeature'
+654:25: INFO: Renamed 'tf.VarLenFeature' to 'tf.io.VarLenFeature'
+655:23: INFO: Renamed 'tf.FixedLenFeature' to 'tf.io.FixedLenFeature'
+660:22: INFO: Added keywords to args of function 'tf.parse_single_example'
+660:22: INFO: Renamed 'tf.parse_single_example' to 'tf.io.parse_single_example'
+738:16: INFO: Added keywords to args of function 'tf.shape'
+739:16: INFO: Added keywords to args of function 'tf.shape'
+761:40: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+848:16: INFO: Added keywords to args of function 'tf.shape'
+850:14: INFO: Added keywords to args of function 'tf.reduce_max'
+858:20: INFO: Added keywords to args of function 'tf.cond'
+858:48: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+859:36: INFO: Added keywords to args of function 'tf.reverse_sequence'
+873:18: INFO: Added keywords to args of function 'tf.shape'
+874:10: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+892:18: INFO: Added keywords to args of function 'tf.shape'
+893:10: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+900:26: INFO: Renamed 'tf.ceil' to 'tf.math.ceil'
+941:10: INFO: Added keywords to args of function 'tf.reduce_min'
+946:14: INFO: Added keywords to args of function 'tf.reduce_max'
+950:10: INFO: Added keywords to args of function 'tf.shape'
+972:17: INFO: Added keywords to args of function 'tf.reduce_max'
+983:36: INFO: Added keywords to args of function 'tf.shape'
+992:37: INFO: Added keywords to args of function 'tf.shape'
+1091:20: INFO: Added keywords to args of function 'tf.cond'
+1091:48: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+1092:36: INFO: Added keywords to args of function 'tf.reverse_sequence'
+1104:16: INFO: Added keywords to args of function 'tf.shape'
+1105:14: INFO: Added keywords to args of function 'tf.reduce_max'
+1124:28: INFO: Added keywords to args of function 'tf.shape'
+1129:13: INFO: Added keywords to args of function 'tf.reduce_max'
+1137:20: INFO: Added keywords to args of function 'tf.reduce_max'
+1161:17: INFO: Added keywords to args of function 'tf.shape'
+1172:36: INFO: Added keywords to args of function 'tf.shape'
+1176:18: INFO: Added keywords to args of function 'tf.shape'
+1186:37: INFO: Added keywords to args of function 'tf.shape'
+1197:11: INFO: Renamed 'tf.ConfigProto' to 'tf.compat.v1.ConfigProto'
+1200:2: INFO: Renamed 'tf.enable_eager_execution' to 'tf.compat.v1.enable_eager_execution'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/smartink/loss/nll.py'
+ outputting to 'smart_ink_tf2/smartink/loss/nll.py'
+--------------------------------------------------------------------------------
+
+20:7: INFO: `name` passed to `name_scope`. Because you may be re-entering an existing scope, it is not safe to convert automatically,  the v2 name_scope does not support re-entering scopes by name.
+
+20:7: INFO: Renamed 'tf.name_scope' to 'tf.compat.v1.name_scope'
+29:13: INFO: Added keywords to args of function 'tf.reduce_sum'
+38:13: INFO: Added keywords to args of function 'tf.reduce_sum'
+55:9: INFO: Added keywords to args of function 'tf.reduce_mean'
+55:32: INFO: Added keywords to args of function 'tf.reduce_sum'
+68:7: INFO: `name` passed to `name_scope`. Because you may be re-entering an existing scope, it is not safe to convert automatically,  the v2 name_scope does not support re-entering scopes by name.
+
+68:7: INFO: Renamed 'tf.name_scope' to 'tf.compat.v1.name_scope'
+70:21: INFO: Renamed 'tf.log' to 'tf.math.log'
+70:47: INFO: Renamed 'tf.div' to 'tf.compat.v1.div'
+72:11: INFO: Added keywords to args of function 'tf.reduce_sum'
+93:7: INFO: `name` passed to `name_scope`. Because you may be re-entering an existing scope, it is not safe to convert automatically,  the v2 name_scope does not support re-entering scopes by name.
+
+93:7: INFO: Renamed 'tf.name_scope' to 'tf.compat.v1.name_scope'
+96:24: INFO: Renamed 'tf.div' to 'tf.compat.v1.div'
+97:24: INFO: Renamed 'tf.div' to 'tf.compat.v1.div'
+98:16: INFO: Renamed 'tf.div' to 'tf.compat.v1.div'
+101:26: INFO: Renamed 'tf.log' to 'tf.math.log'
+105:18: INFO: Renamed 'tf.div' to 'tf.compat.v1.div'
+111:13: INFO: Added keywords to args of function 'tf.reduce_sum'
+127:7: INFO: `name` passed to `name_scope`. Because you may be re-entering an existing scope, it is not safe to convert automatically,  the v2 name_scope does not support re-entering scopes by name.
+
+127:7: INFO: Renamed 'tf.name_scope' to 'tf.compat.v1.name_scope'
+136:17: INFO: Added keywords to args of function 'tf.shape'
+137:14: INFO: Added keywords to args of function 'tf.shape'
+138:29: INFO: Added keywords to args of function 'tf.shape'
+139:21: INFO: Added keywords to args of function 'tf.shape'
+145:16: INFO: Renamed 'tf.log' to 'tf.math.log'
+148:24: INFO: Added keywords to args of function 'tf.reduce_sum'
+149:9: INFO: Renamed 'tf.log' to 'tf.math.log'
+149:35: INFO: Renamed 'tf.div' to 'tf.compat.v1.div'
+151:10: INFO: Added keywords to args of function 'tf.reduce_logsumexp'
+170:7: INFO: `name` passed to `name_scope`. Because you may be re-entering an existing scope, it is not safe to convert automatically,  the v2 name_scope does not support re-entering scopes by name.
+
+170:7: INFO: Renamed 'tf.name_scope' to 'tf.compat.v1.name_scope'
+174:14: INFO: Added keywords to args of function 'tf.shape'
+176:17: INFO: Added keywords to args of function 'tf.shape'
+186:13: INFO: Renamed 'tf.div' to 'tf.compat.v1.div'
+187:22: INFO: Renamed 'tf.div' to 'tf.compat.v1.div'
+189:21: INFO: Added keywords to args of function 'tf.reduce_sum'
+191:24: INFO: Renamed 'tf.log' to 'tf.math.log'
+193:11: INFO: Added keywords to args of function 'tf.reduce_sum'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/smartink/loss/chamfer.py'
+ outputting to 'smart_ink_tf2/smartink/loss/chamfer.py'
+--------------------------------------------------------------------------------
+
+21:14: INFO: Added keywords to args of function 'tf.norm'
+41:14: INFO: Added keywords to args of function 'tf.norm'
+54:14: INFO: Added keywords to args of function 'tf.reduce_min'
+55:14: INFO: Added keywords to args of function 'tf.reduce_sum'
+73:9: INFO: Added keywords to args of function 'tf.reduce_mean'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'smart_ink_clone/smartink/loss/reduce.py'
+ outputting to 'smart_ink_tf2/smartink/loss/reduce.py'
+--------------------------------------------------------------------------------
+
+15:31: INFO: Added keywords to args of function 'tf.reduce_sum'
+16:24: INFO: Added keywords to args of function 'tf.reduce_sum'
+17:9: INFO: Added keywords to args of function 'tf.reduce_mean'
+29:9: INFO: Added keywords to args of function 'tf.reduce_mean'
+29:24: INFO: Added keywords to args of function 'tf.reduce_sum'
+--------------------------------------------------------------------------------
+

@@ -1,0 +1,146 @@
+from subprocess import call
+import time
+
+"""
+The working directory must be the same with python file's directory.
+"""
+
+NUM_CPU = 2
+MEMORY = 6000
+NUM_GPU = 1
+WALL_TIME = 23
+# cluster_command_format = 'bsub -G ls_hilli -n {} -W {}:00 -o log_{} -R "rusage[mem={}, ngpus_excl_p={}]" '
+cluster_command_format = 'bsub -G ls_hilli -n {} -W {}:00 -o log_{} -R "rusage[mem={}, ngpus_excl_p={}]" -R "select[gpu_mtotal0>=10240]" '  # Ensures gtx1080Ti or rtx2080Ti
+
+
+experiment_list_embedding = [
+    ]
+
+experiment_list_predictive_transformer = [
+    'python ink_training_eager_embedding.py '
+    '--comment "tf2-af03-t_s4-t_emb_c_freq2-dec_1e6_emb1e3" --decoder_model t_emb '
+    '--latent_units 8 --grad_clip_norm 1 --batch_size 400 --affine_prob 0.3 '
+    '--encoder_model transformer --transformer_scale --transformer_pos_encoding '
+    '--transformer_layers 6 --transformer_heads 4 --transformer_dmodel 64 '
+    '--transformer_hidden_units 256 --transformer_dropout 0.0 '
+    '--resampling_factor 0 --scale_factor 0 --n_t_samples 4 --t_frequency_channels 2 '
+    '--learning_rate_type transformer --stroke_loss nll_gmm '
+    '--reg_emb_weight 1e-3 --reg_dec_weight 1e-6 '
+    '--decoder_layers 4 --decoder_hidden_units 512,512,512,512 '
+    '--data_name didi_wo_text --metadata_type position ',
+    
+    'python ink_training_eager_embedding.py '
+    '--comment "tf2-af03-t_s4-no_gclip-t_emb_c_freq2-dec_1e6_emb1e3" --decoder_model t_emb '
+    '--latent_units 8 --grad_clip_value 0 --batch_size 400 --affine_prob 0.3 '
+    '--encoder_model transformer --transformer_scale --transformer_pos_encoding '
+    '--transformer_layers 6 --transformer_heads 4 --transformer_dmodel 64 '
+    '--transformer_hidden_units 256 --transformer_dropout 0.0 '
+    '--resampling_factor 0 --scale_factor 0 --n_t_samples 4 --t_frequency_channels 2 '
+    '--learning_rate_type transformer --stroke_loss nll_gmm '
+    '--reg_emb_weight 1e-3 --reg_dec_weight 1e-6 '
+    '--decoder_layers 4 --decoder_hidden_units 512,512,512,512 '
+    '--data_name didi_wo_text --metadata_type position ',
+    
+    'python ink_training_eager_embedding.py '
+    '--comment "tf2-af03-t_s4-no_gclip-t_emb_c_freq4" --decoder_model t_emb '
+    '--latent_units 8 --grad_clip_value 0 --batch_size 400 --affine_prob 0.3 '
+    '--encoder_model transformer --transformer_scale --transformer_pos_encoding '
+    '--transformer_layers 6 --transformer_heads 4 --transformer_dmodel 64 '
+    '--transformer_hidden_units 256 --transformer_dropout 0.0 '
+    '--resampling_factor 0 --scale_factor 0 --n_t_samples 4 --t_frequency_channels 4 '
+    '--learning_rate_type transformer --stroke_loss nll_gmm '
+    '--decoder_layers 4 --decoder_hidden_units 512,512,512,512 '
+    '--data_name didi_wo_text --metadata_type position ',
+    
+    'python ink_training_eager_embedding.py '
+    '--comment "tf2-af03-t_s4-no_gclip-t_emb_c_freq4-dec_1e6_emb1e3" --decoder_model t_emb '
+    '--latent_units 8 --grad_clip_value 0 --batch_size 400 --affine_prob 0.3 '
+    '--encoder_model transformer --transformer_scale --transformer_pos_encoding '
+    '--transformer_layers 6 --transformer_heads 4 --transformer_dmodel 64 '
+    '--transformer_hidden_units 256 --transformer_dropout 0.0 '
+    '--resampling_factor 0 --scale_factor 0 --n_t_samples 4 --t_frequency_channels 4 '
+    '--learning_rate_type transformer --stroke_loss nll_gmm '
+    '--reg_emb_weight 1e-3 --reg_dec_weight 1e-6 '
+    '--decoder_layers 4 --decoder_hidden_units 512,512,512,512 '
+    '--data_name didi_wo_text --metadata_type position ',
+    
+    
+    # 'python ink_training_eager_embedding.py '
+    # '--comment "tf2-af03-t_s4-no_gclip" --decoder_model t_emb '
+    # '--latent_units 8 --grad_clip_value 0 --batch_size 400 --affine_prob 0.3 '
+    # '--encoder_model transformer --transformer_scale --transformer_pos_encoding '
+    # '--transformer_layers 6 --transformer_heads 4 --transformer_dmodel 64 '
+    # '--transformer_hidden_units 256 --transformer_dropout 0.0 '
+    # '--resampling_factor 0 --scale_factor 0 --n_t_samples 4 --t_frequency_channels 0 '
+    # '--learning_rate_type transformer --stroke_loss nll_gmm '
+    # '--decoder_layers 4 --decoder_hidden_units 512,512,512,512 '
+    # '--data_name didi_wo_text --metadata_type position ',
+    #
+    # 'python ink_training_eager_embedding.py '
+    # '--comment "tf2-af03-t_s4-no_gclip-t_freq4" --decoder_model t_emb '
+    # '--latent_units 8 --grad_clip_value 0 --batch_size 400 --affine_prob 0.3 '
+    # '--encoder_model transformer --transformer_scale --transformer_pos_encoding '
+    # '--transformer_layers 6 --transformer_heads 4 --transformer_dmodel 64 '
+    # '--transformer_hidden_units 256 --transformer_dropout 0.0 '
+    # '--resampling_factor 0 --scale_factor 0 --n_t_samples 4 --t_frequency_channels 4 '
+    # '--learning_rate_type transformer --stroke_loss nll_gmm '
+    # '--decoder_layers 4 --decoder_hidden_units 512,512,512,512 '
+    # '--data_name didi_wo_text --metadata_type position ',
+    #
+    # 'python ink_training_eager_embedding.py '
+    # '--comment "tf2-af03-t_s4-gnorm1-dec_1e6_emb1e3" --decoder_model t_emb '
+    # '--latent_units 8 --grad_clip_norm 1 --batch_size 400 --affine_prob 0.3 '
+    # '--encoder_model transformer --transformer_scale --transformer_pos_encoding '
+    # '--transformer_layers 6 --transformer_heads 4 --transformer_dmodel 64 '
+    # '--transformer_hidden_units 256 --transformer_dropout 0.0 '
+    # '--resampling_factor 0 --scale_factor 0 --n_t_samples 4 --t_frequency_channels 0 '
+    # '--learning_rate_type transformer --stroke_loss nll_gmm '
+    # '--reg_emb_weight 1e-3 --reg_dec_weight 1e-6 '
+    # '--decoder_layers 4 --decoder_hidden_units 512,512,512,512 '
+    # '--data_name didi_wo_text --metadata_type position ',
+    #
+    # 'python ink_training_eager_embedding.py '
+    # '--comment "tf2-af03-t_s4-dec_1e4_emb1e2" --decoder_model t_emb '
+    # '--latent_units 8 --grad_clip_value 1 --batch_size 400 --affine_prob 0.3 '
+    # '--encoder_model transformer --transformer_scale --transformer_pos_encoding '
+    # '--transformer_layers 6 --transformer_heads 4 --transformer_dmodel 64 '
+    # '--transformer_hidden_units 256 --transformer_dropout 0.0 '
+    # '--resampling_factor 0 --scale_factor 0 --n_t_samples 4 --t_frequency_channels 0 '
+    # '--learning_rate_type transformer --stroke_loss nll_gmm '
+    # '--reg_emb_weight 1e-2 --reg_dec_weight 1e-4 '
+    # '--decoder_layers 4 --decoder_hidden_units 512,512,512,512 '
+    # '--data_name didi_wo_text --metadata_type position ',
+    #
+    # 'python ink_training_eager_embedding.py '
+    # '--comment "tf2-af03-t_s4-no_gclip-dec_1e6_emb1e3" --decoder_model t_emb '
+    # '--latent_units 8 --grad_clip_norm 0 --batch_size 400 --affine_prob 0.3 '
+    # '--encoder_model transformer --transformer_scale --transformer_pos_encoding '
+    # '--transformer_layers 6 --transformer_heads 4 --transformer_dmodel 64 '
+    # '--transformer_hidden_units 256 --transformer_dropout 0.0 '
+    # '--resampling_factor 0 --scale_factor 0 --n_t_samples 4 --t_frequency_channels 0 '
+    # '--learning_rate_type transformer --stroke_loss nll_gmm '
+    # '--reg_emb_weight 1e-3 --reg_dec_weight 1e-6 '
+    # '--decoder_layers 4 --decoder_hidden_units 512,512,512,512 '
+    # '--data_name didi_wo_text --metadata_type position ',
+    ]
+
+experiment_list = experiment_list_predictive_transformer
+data = ''
+
+experiment_timestamp = str(int(time.time()))
+start_id = 1
+for work_id, experiment in enumerate(experiment_list):
+    experiment_id = "{}.{}".format(experiment_timestamp, start_id+work_id)
+    time.sleep(1)
+    print(experiment_id)
+    experiment_command = experiment + data + ' --experiment_id ' + experiment_id
+
+    cluster_command = cluster_command_format.format(NUM_CPU,
+                                                    WALL_TIME,
+                                                    experiment_id,
+                                                    MEMORY,
+                                                    NUM_GPU)
+    call([cluster_command + experiment_command], shell=True)
+
+
+
