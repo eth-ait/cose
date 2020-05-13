@@ -476,8 +476,7 @@ class OutputModelGMMDense(tf.keras.Model):
                 sigma=sigma,
                 pi=pi)
     
-
-  def draw_sample(self, outputs, greedy=False):
+  def draw_sample(self, outputs, greedy=False, greedy_mu=True):
     is_2d = True
     if len(outputs[self.prefix + C.MU]._shape_as_list()) == 3:
       is_2d = False
@@ -519,7 +518,7 @@ class OutputModelGMMDense(tf.keras.Model):
     component_mu = tf.gather_nd(mu, gather_idx)
     component_sigma = tf.gather_nd(sigma, gather_idx)
 
-    if greedy:
+    if greedy_mu:
       sample=component_mu
     else:
       sample=tf.random.normal(

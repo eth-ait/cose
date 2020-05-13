@@ -56,6 +56,7 @@ def create_padding_mask(seq, seq_len=None):
 
 
 def create_look_ahead_mask(size):
+  # TODO(aksan) tf.linalg.band_part is not supported by TensorflowJS.
   # mask = 1 - tf.linalg.band_part(tf.ones((size, size)), -1, 0)
 
   row_idx = tf.tile(tf.range(size)[:, tf.newaxis], [1, size])
@@ -529,11 +530,14 @@ class TransformerSeq2seqConditional(BaseModel):
     distances = tf.reshape(distances, (batch_size, num_point, num_point))
     return distances
   
-  def call(self, inputs, input_cond, target_cond=None, seq_len=None, training=None, **kwargs):
-
-    enc_padding_mask = create_padding_mask(inputs[:, :, 0], seq_len)
+  def call(self, inputs, training=None, **kwargs):
+    seq_len = inputs["seq_len"]
+    target_cond = inputs["target_cond"]
+    input_cond = inputs["input_cond"]
+    input_seq = inputs["input_seq"]
+    enc_padding_mask = create_padding_mask(input_seq[:, :, 0], seq_len)
     if self.autoregressive:
-      look_ahead_mask = create_look_ahead_mask(tf.shape(input=inputs[:, :, 0])[1])
+      look_ahead_mask = create_look_ahead_mask(tf.shape(input=input_seq[:, :, 0])[1])
       encoder_mask = tf.maximum(enc_padding_mask, look_ahead_mask)
     else:
       encoder_mask = enc_padding_mask
@@ -541,9 +545,9 @@ class TransformerSeq2seqConditional(BaseModel):
     if target_cond is not None:
       n_input = tf.shape(input=input_cond)[1]
       target_cond_inp = tf.tile(target_cond, [1, n_input, 1])
-      enc_inp = tf.concat([inputs, input_cond, target_cond_inp], axis=-1)
+      enc_inp = tf.concat([input_seq, input_cond, target_cond_inp], axis=-1)
     else:
-      enc_inp = tf.concat([inputs, input_cond], axis=-1)
+      enc_inp = tf.concat([input_seq, input_cond], axis=-1)
 
     # rel_key_emb = tf.expand_dims(tf.matmul(input_cond, input_cond, transpose_b=True), axis=-1)
     # rel_key_emb = self.distance_matrix_batch(input_cond, input_cond)

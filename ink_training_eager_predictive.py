@@ -1,4 +1,4 @@
-"""Main training script by using TF static graph."""
+"""Main training script."""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -6,11 +6,7 @@ from __future__ import print_function
 
 import os
 import tensorflow as tf
-
-tf_config = tf.compat.v1.ConfigProto()
-tf_config.gpu_options.allow_growth = True
-tf_config.gpu_options.per_process_gpu_memory_fraction = 0.5
-tf.compat.v1.enable_eager_execution(config=tf_config)
+from absl import app
 
 from common.constants import Constants as C
 from smartink.source.training_eager import TrainingEngine
@@ -20,6 +16,13 @@ from smartink.config.config_predictive_ink import build_predictive_model
 from smartink.config.config_predictive_ink import build_dataset
 
 FLAGS = define_flags()
+
+gpu = tf.config.experimental.list_physical_devices('GPU')[0]
+if gpu:
+  try:
+    tf.config.experimental.set_memory_growth(gpu, True)
+  except RuntimeError as e:
+    print(e)
 
 
 def main(argv):
@@ -38,11 +41,6 @@ def main(argv):
   # Create Models
   model = build_predictive_model(config, C.RUN_EAGER)
 
-  # Experiment directory
-  if not os.path.exists(config.experiment.model_dir):
-    os.mkdir(config.experiment.model_dir)
-    config.dump(config.experiment.model_dir)
-
   # Training Engine
   training_engine = TrainingEngine(
       config=config,
@@ -50,11 +48,12 @@ def main(argv):
       train_data=train_data,
       valid_data=valid_data,
       test_data=None,
-      debug=True)
+      debug=False)
 
   # Start Training
   training_engine.run()
 
 
 if __name__ == "__main__":
-  tf.compat.v1.app.run()
+  app.run(main)
+

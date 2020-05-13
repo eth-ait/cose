@@ -17,7 +17,6 @@ from smartink.config.config_embedding import build_dataset
 
 FLAGS = define_flags()
 
-
 gpu = tf.config.experimental.list_physical_devices('GPU')[0]
 if gpu:
   try:

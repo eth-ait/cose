@@ -257,7 +257,7 @@ class TEmbedding(BaseModel):
         pen=pen_binary)
 
   @tf.function(input_signature=[tf.TensorSpec(shape=[None, 8], dtype=tf.float32), tf.TensorSpec(shape=(), dtype=tf.int32)])
-  def decode_strokes(self, embedding_sample, target_seq_len):
+  def serving_decode_strokes(self, embedding_sample, target_seq_len):
     """Decodes stroke embeddings into a sequence by mapping t in [0,1] to
     target_seq_len. Decoded stroke length will be the same for all.
 
@@ -279,7 +279,7 @@ class TEmbedding(BaseModel):
                 seq_len=decoded_seq_len)
 
   @tf.function(input_signature=[tf.TensorSpec(shape=[None, None, 3], dtype=tf.float32), tf.TensorSpec(shape=[None], dtype=tf.int32)])
-  def encode_strokes(self, input_stroke, input_seq_len):
+  def serving_encode_strokes(self, input_stroke, input_seq_len):
     """Encodes a stroke sequence into a fixed length embedding.
 
     Args:
@@ -294,7 +294,7 @@ class TEmbedding(BaseModel):
     return dict(embedding_sample=embedding_sample)
 
   @tf.function(input_signature=[tf.TensorSpec(shape=[None, None, 3], dtype=tf.float32), tf.TensorSpec(shape=[None], dtype=tf.int32), tf.TensorSpec(shape=(), dtype=tf.int32)])
-  def forward_pass(self, input_stroke, input_seq_len, target_seq_len):
+  def serving_forward_pass(self, input_stroke, input_seq_len, target_seq_len):
     """Encodes and decodes a stroke sequence. Also works with batches if the
     decoded stroke length is the same for all.
 

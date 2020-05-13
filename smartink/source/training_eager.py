@@ -73,7 +73,13 @@ class TrainingEngine(object):
     else:
       self.glogger = None
 
-  @tf.function
+  @tf.function(experimental_relax_shapes=True)
+  def eval_step_static(self, batch_inputs, batch_targets):
+    predictions = self.model(inputs=batch_inputs, training=False)
+    loss_dict = self.model.loss(predictions, batch_targets)
+    return loss_dict
+  
+  @tf.function(experimental_relax_shapes=True)
   def train_step_static(self, batch_inputs, batch_targets):
     with tf.GradientTape() as tape:
       predictions = self.model(inputs=batch_inputs, training=True)
@@ -170,8 +176,9 @@ class TrainingEngine(object):
       try:
         while True:
           batch_inputs_valid, batch_target_valid = self.valid_data.get_next()
-          predictions = self.model(inputs=batch_inputs_valid, training=False)
-          loss_dict_valid = self.model.loss(predictions, batch_target_valid)
+          # predictions = self.model(inputs=batch_inputs_valid, training=False)
+          # loss_dict_valid = self.model.loss(predictions, batch_target_valid)
+          loss_dict_valid = self.eval_step_static(batch_inputs_valid, batch_target_valid)
           eval_loss_summary.add(dict_tf_to_numpy(loss_dict_valid))
 
       except tf.errors.OutOfRangeError:
@@ -185,7 +192,8 @@ class TrainingEngine(object):
               (time.perf_counter() - start_time)/eval_step))
 
       # Early stopping check.
-      valid_loss = eval_loss_dict["loss"]
+      # valid_loss = eval_loss_dict["loss"]
+      valid_loss = eval_loss_dict["reconstruction_loss"]
       if (best_valid_loss - valid_loss) > np.abs(
           best_valid_loss*improvement_ratio):
         num_steps_wo_improvement = 0
@@ -210,26 +218,43 @@ class TrainingEngine(object):
     print("Loading model {}".format(self.saver.latest_checkpoint))
     batch_inputs, batch_targets = self.train_data.get_next()
     _ = self.model(inputs=batch_inputs, training=True)
-    _ = self.model.predict_on_batch(batch_inputs)
+    
+    if self.config.get("predictive_model", None) is not None:
+      # Full model.
+      _ = self.model.predict_on_batch(batch_inputs)
+      _ = self.model.embedding_model.predict_on_batch(batch_inputs)
+      
+      self.model.save(
+        os.path.join(self.model_dir, "saved_model_with_signatures"),
+        signatures={"decode_stroke"    : self.model.embedding_model.serving_decode_strokes,
+                    "encode_stroke"    : self.model.embedding_model.serving_encode_strokes,
+                    "forward_pass"     : self.model.embedding_model.serving_forward_pass,
+                    "predict_embedding": self.model.serving_predict_embedding,
+                    "predict_position" : self.model.serving_predict_position,
+                    })
+    else:
+      # Embedding model only.
+      _ = self.model.predict_on_batch(batch_inputs)
 
-    # decoding_signature = self.model.decode_single_stroke.get_concrete_function(
-    #   embedding=tf.TensorSpec(shape=[None, 8], dtype=tf.float32),
-    #   seq_len=tf.TensorSpec(shape=(), dtype=tf.int32))
-    #
-    # encoding_signature = self.model.encode_single_stroke.get_concrete_function(
-    #     input_stroke=tf.TensorSpec(shape=[None, None, 3], dtype=tf.float32),
-    #     seq_len=tf.TensorSpec(shape=[None], dtype=tf.int32))
-    
-    self.model.save(os.path.join(self.model_dir, "saved_model_with_signatures"),
-                    signatures={"decode_stroke": self.model.decode_strokes,
-                                "encode_stroke": self.model.encode_strokes,
-                                "forward_pass": self.model.forward_pass,
-                                })
-    self.model.save(os.path.join(self.model_dir, "saved_model"), save_format="tf")
-    
-    """
-    > cd [model directory]
-    > tensorflowjs_converter ./saved_model_with_signature ./tf_js_model_with_signature --input_format=tf_saved_model  --saved_model_tags=serve --signature_name forward_pass
-    """
+      # decoding_signature = self.model.decode_single_stroke.get_concrete_function(
+      #   embedding=tf.TensorSpec(shape=[None, 8], dtype=tf.float32),
+      #   seq_len=tf.TensorSpec(shape=(), dtype=tf.int32))
+      #
+      # encoding_signature = self.model.encode_single_stroke.get_concrete_function(
+      #     input_stroke=tf.TensorSpec(shape=[None, None, 3], dtype=tf.float32),
+      #     seq_len=tf.TensorSpec(shape=[None], dtype=tf.int32))
+      
+      self.model.save(os.path.join(self.model_dir, "saved_model_with_signatures"),
+                      signatures={"decode_stroke": self.model.decode_strokes,
+                                  "encode_stroke": self.model.encode_strokes,
+                                  "forward_pass": self.model.forward_pass,
+                                  })
+      """
+      cd [model directory]
+      tensorflowjs_converter ./saved_model_with_signatures ./js_encoder --input_format=tf_saved_model  --saved_model_tags=serve --signature_name encode_stroke
+      tensorflowjs_converter ./saved_model_with_signatures ./js_decoder --input_format=tf_saved_model  --saved_model_tags=serve --signature_name decode_stroke
+      tensorflowjs_converter ./saved_model_with_signatures ./js_embedding_predictor --input_format=tf_saved_model  --saved_model_tags=serve --signature_name predict_embedding
+      tensorflowjs_converter ./saved_model_with_signatures ./js_position_predictor --input_format=tf_saved_model  --saved_model_tags=serve --signature_name predict_position
+      """
       
       

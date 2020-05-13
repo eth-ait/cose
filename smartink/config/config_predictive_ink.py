@@ -115,9 +115,10 @@ def define_flags():
   
   ### Predictive model.
   flags.DEFINE_string("predictive_model", "transformer", "ink models: rnn or transformer.")
-  flags.DEFINE_bool("layer_norm_embeddings", False, "whether to apply layer normalization to embeddings or not.")
-  flags.DEFINE_bool("use_start_pos", False, "whether to feed stroke stat position or not.")
-  flags.DEFINE_string("pred_input_type", "random", "input/target configuration: leave_one_out, random or last_step.")
+  flags.DEFINE_bool("use_start_pos", False, "whether to feed stroke start position or not.")
+  flags.DEFINE_bool("use_end_pos", False, "whether to feed stroke end position or not.")
+  flags.DEFINE_bool("stop_predictive_grad", False, "whether to stop gradient flow to the embedding model or not.")
+  flags.DEFINE_string("pred_input_type", "random", "input/target configuration: single[leave_one_out, last_step], set[random, ordered, hybrid].")
   
   # Predictive: RNN models.
   flags.DEFINE_integer("predictive_rnn_layers", 1,
@@ -171,8 +172,6 @@ def get_config(FLAGS, experiment_id=None):
       model_dir=None,  # Set automatically.
       eval_dir=None,  # Set automatically.
       id=experiment_id,
-      learning_rate=FLAGS.learning_rate,
-      learning_rate_type=FLAGS.learning_rate_type,
       max_epochs=None,
       max_steps=200000,
       log_frequency=100,
@@ -182,6 +181,14 @@ def get_config(FLAGS, experiment_id=None):
       grad_clip_value=FLAGS.grad_clip_value,
       pretrained_emb_id=FLAGS.pretrained_emb_id
       )
+  config.experiment.learning_rate = AttrDict(
+      name=FLAGS.learning_rate_type,
+      initial_learning_rate=FLAGS.learning_rate,
+      )
+  if FLAGS.learning_rate_type == "transformer":
+    config.experiment.learning_rate.d_model = FLAGS.transformer_dmodel
+    config.experiment.learning_rate.warmup_steps = 4000
+    
   config.data = DataConfig(
       data_dir=FLAGS.data_dir,
       data_name=FLAGS.data_name,
@@ -264,7 +271,7 @@ def get_config(FLAGS, experiment_id=None):
     target_key_stroke = C.TARGET_T_STROKE
   else:
     err_unknown_type(FLAGS.decoder_model)
-
+  
   # Predictive model.
   if FLAGS.predictive_model == "rnn":
     config.predictive_model = AttrDict(
@@ -274,8 +281,9 @@ def get_config(FLAGS, experiment_id=None):
         cell_layers=FLAGS.predictive_rnn_layers,
         cell_type=FLAGS.predictive_cell_type,
         activation=C.RELU,
-        layer_norm_embeddings=FLAGS.layer_norm_embeddings,
         use_start_pos=FLAGS.use_start_pos,
+        use_end_pos=FLAGS.use_end_pos,
+        stop_predictive_grad=FLAGS.stop_predictive_grad,
         pred_input_type=FLAGS.pred_input_type,
         use_cudnn=True,
     )
@@ -291,8 +299,9 @@ def get_config(FLAGS, experiment_id=None):
         dropout_rate=FLAGS.p_transformer_dropout,
         pos_encoding=FLAGS.p_transformer_pos_encoding,
         scale=FLAGS.p_transformer_scale,
-        layer_norm_embeddings=FLAGS.layer_norm_embeddings,
         use_start_pos=FLAGS.use_start_pos,
+        use_end_pos=FLAGS.use_end_pos,
+        stop_predictive_grad=FLAGS.stop_predictive_grad,
         pred_input_type=FLAGS.pred_input_type,
     )
   else:
@@ -499,8 +508,13 @@ def build_experiment_name(config):
   
   # data = config.data.data_name
   data = ""
-  experiment = "B{}_LR{}".format(config.data.batch_size,
-                                 config.experiment.learning_rate)
+  lr = ""
+  if config.experiment.learning_rate.name == "transformer":
+    lr = "_tr"
+  elif config.experiment.learning_rate.name == "exponential":
+    lr = "_exp"
+  experiment = "B{}_LR{}".format(config.data.batch_size, lr)
+  
   loss = "loss_{}{}{}".format(
       "P" if config.loss.apply_predicted_ink else "",
       "E" if config.loss.apply_predicted_embedding else "",
@@ -597,7 +611,8 @@ def build_predictive_model(config_, run_mode):
       loss_reconstructed_ink=config_.loss.apply_reconstructed_ink,
       input_type=config_.predictive_model.pred_input_type,
       start_positions=config_.predictive_model.use_start_pos,
-      layer_norm_embeddings=config_.predictive_model.layer_norm_embeddings,
+      end_positions=config_.predictive_model.get("use_end_pos", False),
+      stop_predictive_grad=config_.predictive_model.get("stop_predictive_grad", False),
       config_loss=copy.deepcopy(config_.loss),
       run_mode=run_mode)
   return model_
