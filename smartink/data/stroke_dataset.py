@@ -401,13 +401,13 @@ class TFRecordStroke(Dataset):
     #     dtype=tf.int64)
     
     factor = tf.cast(
-        tf.cond(pred=sample["stroke_length"] < 20,
+        tf.cond(pred=tf.reduce_max(sample["stroke_length"]) < 20,
                 true_fn=lambda: 1,
                 false_fn=lambda: self.resampling_factor // 2),
         dtype=tf.int32)
 
     factor = tf.cast(
-        tf.cond(pred=sample["stroke_length"] > 100,
+        tf.cond(pred=tf.reduce_max(sample["stroke_length"]) > 100,
                 true_fn=lambda: self.resampling_factor,
                 false_fn=lambda: factor),
         dtype=tf.int64)
