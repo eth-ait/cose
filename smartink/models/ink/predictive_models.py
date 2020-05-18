@@ -29,6 +29,7 @@ class PredictiveInkModel(BaseModel):
                end_positions,
                stop_predictive_grad,
                config_loss,
+               num_predictive_inputs=8,
                run_mode=C.RUN_STATIC,
                **kwargs):
     """Constructor.
@@ -45,6 +46,7 @@ class PredictiveInkModel(BaseModel):
       start_positions: whether to use stroke start coordinates or not.
       end_positions: whether to use stroke end coordinates or not.
       stop_predictive_grad: disable gradient flow to the embedding model.
+      num_predictive_inputs: # of input configurations to the predictive model.
       run_mode: eager, static or estimator.
       **kwargs:
     """
@@ -62,7 +64,7 @@ class PredictiveInkModel(BaseModel):
     self.start_positions = start_positions
     self.end_positions = end_positions
     self.stop_predictive_grad = stop_predictive_grad
-    self.num_predictive_inputs = 8
+    self.num_predictive_inputs = num_predictive_inputs
     
     if self.input_type == "hybrid":
       self.num_predictive_inputs //= 2
@@ -76,13 +78,12 @@ class PredictiveInkModel(BaseModel):
     pass
 
   # @tf.function(experimental_relax_shapes=True)
-  def call(self, inputs, output_len=None, training=None, **kwargs):
+  def call(self, inputs, training=False, **kwargs):
     """Call method.
 
     Args:
       inputs (dict): expected to contain inputs for the encoder and decoder,
         sequence length and number of strokes ops.
-      output_len (int): length of output sequence.
       training: whether in training mode or not.
       **kwargs:
 

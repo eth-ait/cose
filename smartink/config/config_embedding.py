@@ -39,18 +39,16 @@ def define_flags():
   flags.DEFINE_bool("skip_normalization", False, "")
   flags.DEFINE_bool("mask_encoder_pen", False,
                     "whether to mask pen information for encoder or not.")
-  flags.DEFINE_bool(
-      "fixed_len_seq", False,
-      "pad sequences to have fixed length of max_length_threshold.")
-  flags.DEFINE_integer(
-      "resampling_factor", 0,
-      "Temporal resampling rate. Randomly sampled between 1 and the given value.")
+  flags.DEFINE_bool("fixed_len_seq", False, "pad sequences to have fixed length of max_length_threshold.")
+  flags.DEFINE_integer("resampling_factor", 0, "Temporal resampling rate. Randomly sampled between 1 and the given value.")
   flags.DEFINE_float("scale_factor", 0, "Amount of scaling.")
   flags.DEFINE_float("affine_prob", 0, "Chance of applying affine transf.")
   flags.DEFINE_float("reverse_prob", 0, "Chance of reverting a sequence.")
   flags.DEFINE_integer("n_t_samples", 1, "# of t samples per sequence.")
   flags.DEFINE_boolean("int_t_samples", False, "whether to interpolate t targets or not.")
   flags.DEFINE_boolean("concat_t_inputs", False, "whether to concatenate input points with t.")
+  flags.DEFINE_float("t_drop_ratio", 0, "Drop ratio of steps in temporal resampling.")
+  flags.DEFINE_boolean("gt_targets", False, "whether to keep the ground-truth targets after pre-processing or not.")
   
   # Experiment details
   flags.DEFINE_integer("batch_size", 100, "batch size for training")
@@ -160,6 +158,8 @@ def get_config(FLAGS, experiment_id=None):
       mask_pen=FLAGS.mask_encoder_pen,
       fixed_len=FLAGS.fixed_len_seq,
       resampling_factor=FLAGS.resampling_factor,
+      t_drop_ratio=FLAGS.t_drop_ratio,
+      gt_targets=FLAGS.gt_targets,
       scale_factor=FLAGS.scale_factor,
       affine_prob=FLAGS.affine_prob,
       reverse_prob=FLAGS.reverse_prob,
@@ -425,10 +425,11 @@ def build_dataset(config_, run_mode=C.RUN_STATIC, split=C.DATA_TRAIN):
         mask_pen=config_.data.get("mask_pen", False),
         fixed_len=config_.data.get("fixed_len", False),
         resampling_factor=config_.data.get("resampling_factor", 0),
+        t_drop_ratio=config_.data.get("t_drop_ratio", 0),
         scale_factor=config_.data.get("scale_factor", 0),
         affine_prob=config_.data.get("affine_prob", 0),
         reverse_prob=config_.data.get("reverse_prob", 0),
-        resample_target=False,
+        gt_targets=config_.data.get("gt_targets", False),
         n_t_targets=config_.data.get("n_t_samples", 1),
         int_t_samples=config_.data.get("int_t_samples", False),
         concat_t_inputs=config_.data.get("concat_t_inputs", False),
