@@ -29,11 +29,6 @@ def main(argv):
   del argv
   config = get_config(FLAGS)
 
-  # Experiment directory
-  if not os.path.exists(config.experiment.model_dir):
-    os.mkdir(config.experiment.model_dir)
-    config.dump(config.experiment.model_dir)
-
   # Create Dataset
   train_data = build_dataset(config, C.RUN_EAGER, C.DATA_TRAIN)
   valid_data = build_dataset(config, C.RUN_EAGER, C.DATA_VALID)

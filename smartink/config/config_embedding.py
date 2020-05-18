@@ -8,7 +8,9 @@ import glob
 import os
 
 from absl import flags
+import builtins as __builtin__
 
+from common.print_function import Print
 from common.constants import Constants as C
 from smartink.config.configuration import AttrDict
 from smartink.config.configuration import Configuration
@@ -281,6 +283,7 @@ def get_config(FLAGS, experiment_id=None):
   model_dir_query = glob.glob(os.path.join(log_dir, config.experiment.id + "*"))
   if model_dir_query:
     model_dir = model_dir_query[0]
+    __builtin__.print = Print(os.path.join(model_dir, "log.txt"))  # Overload print.
     # Load experiment config.
     config = Configuration.from_json(os.path.join(model_dir, "config.json"))
     config.experiment.model_dir = model_dir
@@ -292,6 +295,8 @@ def get_config(FLAGS, experiment_id=None):
     model_dir_name = config.experiment.id + "-" + config.experiment.tag
     config.experiment.model_dir = os.path.join(log_dir, model_dir_name)
     config.experiment.eval_dir = os.path.join(eval_dir, model_dir_name)
+    os.mkdir(config.experiment.model_dir) # Create experiment directory
+    __builtin__.print = Print(os.path.join(config.experiment.model_dir, "log.txt"))  # Overload print.
     print("Saving config to " + config.experiment.model_dir)
 
   if not isinstance(config.data.data_tfrecord_fname, list):
@@ -307,6 +312,8 @@ def get_config(FLAGS, experiment_id=None):
   config.gdrive.credential = gdrive_key
   if FLAGS.gdrive_api_key == "nope":
     config.gdrive = None
+
+  config.dump(config.experiment.model_dir)
   return config
     
 def restore_config(experiment_id):
@@ -328,8 +335,9 @@ def restore_config(experiment_id):
   model_dir = model_dir_query[0]
   config = Configuration.from_json(os.path.join(model_dir, "config.json"))
   config.experiment.model_dir = model_dir
-  config.experiment.eval_dir = os.path.join(eval_dir,
-                                            os.path.basename(model_dir))
+  config.experiment.eval_dir = os.path.join(eval_dir, os.path.basename(model_dir))
+  
+  __builtin__.print = Print(os.path.join(model_dir, "log.txt"))  # Overload print.
   print("Loading from " + config.experiment.model_dir)
   
   # Customize with environment variables.

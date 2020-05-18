@@ -5,12 +5,13 @@ from __future__ import division
 from __future__ import print_function
 
 import copy
-import getpass
 import glob
 import os
 
 from absl import flags
+import builtins as __builtin__
 
+from common.print_function import Print
 from common.constants import Constants as C
 from smartink.config.configuration import AttrDict
 from smartink.config.configuration import Configuration
@@ -119,6 +120,7 @@ def define_flags():
   flags.DEFINE_bool("use_end_pos", False, "whether to feed stroke end position or not.")
   flags.DEFINE_bool("stop_predictive_grad", False, "whether to stop gradient flow to the embedding model or not.")
   flags.DEFINE_string("pred_input_type", "random", "input/target configuration: single[leave_one_out, last_step], set[random, ordered, hybrid].")
+  flags.DEFINE_integer("num_pred_inputs", 8, "# of input/target configurations,")
   
   # Predictive: RNN models.
   flags.DEFINE_integer("predictive_rnn_layers", 1,
@@ -284,6 +286,7 @@ def get_config(FLAGS, experiment_id=None):
         use_start_pos=FLAGS.use_start_pos,
         use_end_pos=FLAGS.use_end_pos,
         stop_predictive_grad=FLAGS.stop_predictive_grad,
+        num_predictive_inputs=FLAGS.num_pred_inputs,
         pred_input_type=FLAGS.pred_input_type,
         use_cudnn=True,
     )
@@ -302,6 +305,7 @@ def get_config(FLAGS, experiment_id=None):
         use_start_pos=FLAGS.use_start_pos,
         use_end_pos=FLAGS.use_end_pos,
         stop_predictive_grad=FLAGS.stop_predictive_grad,
+        num_predictive_inputs=FLAGS.num_pred_inputs,
         pred_input_type=FLAGS.pred_input_type,
     )
   else:
@@ -413,6 +417,7 @@ def get_config(FLAGS, experiment_id=None):
   model_dir_query = glob.glob(os.path.join(log_dir, config.experiment.id + "*"))
   if model_dir_query:
     model_dir = model_dir_query[0]
+    __builtin__.print = Print(os.path.join(model_dir, "log.txt"))  # Overload print.
     # Load experiment config.
     config = config.from_json(os.path.join(model_dir, "config.json"))
     config.experiment.model_dir = model_dir
@@ -426,6 +431,8 @@ def get_config(FLAGS, experiment_id=None):
     model_dir_name = config.experiment.id + "-" + config.experiment.tag
     config.experiment.model_dir = os.path.join(log_dir, model_dir_name)
     config.experiment.eval_dir = os.path.join(eval_dir, model_dir_name)
+    os.mkdir(config.experiment.model_dir) # Create experiment directory
+    __builtin__.print = Print(os.path.join(config.experiment.model_dir, "log.txt"))  # Overload print.
     print("Saving to " + config.experiment.model_dir)
   
   if not isinstance(config.data.data_tfrecord_fname, list):
@@ -444,6 +451,8 @@ def get_config(FLAGS, experiment_id=None):
   config.gdrive.credential = gdrive_key
   if FLAGS.gdrive_api_key == "nope":
     config.gdrive = None
+
+  config.dump(config.experiment.model_dir)
   return config
 
 
@@ -469,6 +478,8 @@ def restore_config(experiment_id):
                                             os.path.basename(model_dir))
   if "predictive_model" not in config:
     raise NotPredictiveModelError
+
+  __builtin__.print = Print(os.path.join(model_dir, "log.txt"))  # Overload print.
   print("Loading from " + config.experiment.model_dir)
   
   if not isinstance(config.data.data_tfrecord_fname, list):
@@ -613,6 +624,7 @@ def build_predictive_model(config_, run_mode):
       start_positions=config_.predictive_model.use_start_pos,
       end_positions=config_.predictive_model.get("use_end_pos", False),
       stop_predictive_grad=config_.predictive_model.get("stop_predictive_grad", False),
+      num_predictive_inputs=config_.predictive_model.get("num_predictive_inputs", 8),
       config_loss=copy.deepcopy(config_.loss),
       run_mode=run_mode)
   return model_
