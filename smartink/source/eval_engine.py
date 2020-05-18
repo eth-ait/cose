@@ -89,7 +89,7 @@ class EvalEngine(object):
       raise Exception("Checkpoint not found.")
     else:
       print("Loading model " + checkpoint_path)
-    checkpoint.restore(checkpoint_path)
+    checkpoint.restore(checkpoint_path).expect_partial()
 
   @tf.function
   def tf_decoding_fn(self, fn, embeddings, seq_len):
@@ -696,7 +696,7 @@ class EvalEngine(object):
       out_ = self.model.predict_embedding_ar(context_embeddings,
                                              inp_pos=input_pos,
                                              target_pos=target_pos,
-                                             greedy=False)
+                                             greedy=True)
       
       context_embeddings = tf.concat([context_embeddings, tf.expand_dims(out_["embedding_sample"], axis=0)], axis=1)
       emb_ = context_embeddings[0].numpy()

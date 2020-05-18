@@ -1,9 +1,5 @@
 """Training engine in eager mode."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import os
 
 import time
@@ -129,9 +125,13 @@ class TrainingEngine(object):
       self.checkpoint.restore(self.saver.latest_checkpoint)
       print("Loading model {}".format(self.saver.latest_checkpoint))
 
-      # tf.keras restores weights only after the first call.
-      batch_inputs, batch_targets = self.train_data.get_next()
-      _ = self.model(inputs=batch_inputs, training=True)
+    # tf.keras restores weights only after the first call.
+    batch_inputs, batch_targets = self.train_data.get_next()
+    _ = self.model(inputs=batch_inputs, training=True)
+    
+    print("# of parameters: " + str(self.model.count_params()))
+    if self.glogger:
+      self.glogger.set_static_cells({"parameters": self.model.count_params()})
 
     eval_loss_summary = AggregateAvg()
     
@@ -245,9 +245,9 @@ class TrainingEngine(object):
       #     seq_len=tf.TensorSpec(shape=[None], dtype=tf.int32))
       
       self.model.save(os.path.join(self.model_dir, "saved_model_with_signatures"),
-                      signatures={"decode_stroke": self.model.decode_strokes,
-                                  "encode_stroke": self.model.encode_strokes,
-                                  "forward_pass": self.model.forward_pass,
+                      signatures={"decode_stroke": self.model.serving_decode_strokes,
+                                  "encode_stroke": self.model.serving_encode_strokes,
+                                  "forward_pass": self.model.serving_forward_pass,
                                   })
       """
       cd [model directory]
@@ -256,5 +256,4 @@ class TrainingEngine(object):
       tensorflowjs_converter ./saved_model_with_signatures ./js_embedding_predictor --input_format=tf_saved_model  --saved_model_tags=serve --signature_name predict_embedding
       tensorflowjs_converter ./saved_model_with_signatures ./js_position_predictor --input_format=tf_saved_model  --saved_model_tags=serve --signature_name predict_position
       """
-      
       

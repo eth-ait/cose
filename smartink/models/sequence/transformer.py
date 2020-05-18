@@ -530,7 +530,7 @@ class TransformerSeq2seqConditional(BaseModel):
     distances = tf.reshape(distances, (batch_size, num_point, num_point))
     return distances
   
-  def call(self, inputs, training=None, **kwargs):
+  def call(self, inputs, training=False, **kwargs):
     seq_len = inputs["seq_len"]
     target_cond = inputs["target_cond"]
     input_cond = inputs["input_cond"]
