@@ -189,86 +189,44 @@ class InkVisualizer(object):
     self.animate = animate
     self.n_rendered_strokes = 100  # All.
     self.marker_size = 0
-
-  def vis_diagram(self, samples, save_name):
-    """Visualizes ink samples stored as a sequence of strokes.
+        
+  def vis_ink_sequence(self, sample,
+                       save_name,
+                       x_borders=None,
+                       y_borders=None,
+                       colors=None):
+    """Visualizes an in sample stored as a sequence of points.
 
     The strokes are already concatenated.
     Args:
-      samples: dict of ink data with stroke and pen with shape (batch,
+      sample: dict of ink data with stroke and pen with shape (batch,
         max_seq_len, ...).
       save_name:
-
-    Returns:
-    """
-    input_samples = samples
-    for batch_idx, samples in input_samples.items():
-      stroke_sample = np.concatenate([samples["stroke"], samples["pen"]],
-                                     axis=-1)
-      stroke_sample = self.undo_preprocessing(stroke_sample,
-                                              samples["start_coord"],
-                                              samples["seq_len"])[0]
-      stroke_sample[:, :, 1] = -1 * stroke_sample[:, :, 1]
-      save_path = os.path.join(self.log_dir, "")
-
-      for idx in range(samples["stroke"].shape[0]):
-        stroke_list = np.split(stroke_sample[idx],
-                               np.where(stroke_sample[idx, :, 2] == 1)[0] + 1)
-        if len(stroke_list) > 1:
-          stroke_list = stroke_list[:-1]
-        self.render_sample(
-            strokes=stroke_list,
-            save_path=save_path + str(batch_idx) + "_" + save_name,
-            n_strokes=self.n_rendered_strokes,
-            animate=self.animate)
-
-  def vis_strokes(self,
-                  samples,
-                  save_name,
-                  num_strokes=None,
-                  x_borders=None,
-                  y_borders=None,
-                  colors=None):
-    """Visualizes ink samples stored as a batch of padded strokes.
-
-    First extract the strokes by ignoring the padding and then undo the
-    pre-processing.
-    Args:
-      samples: dict of diagram samples where each sample is also a dictionary
-        containing the ink data like stroke and pen with shape (batch,
-        max_seq_len, ...).
-      save_name:
-      num_strokes: # of strokes to be rendered (stroke_list[:num_strokes]).
       x_borders: a tuple of min, max x coordinates.
       y_borders: a tuple of min, max y coordinates.
       colors: list of colors per stroke.
-      
+
     Returns:
     """
+    stroke_sample = np.concatenate([sample["stroke"], sample["pen"]], axis=-1)
+    stroke_sample = self.undo_preprocessing(stroke_sample,
+                                            sample["start_coord"],
+                                            sample["seq_len"])[0]
+    stroke_sample[:, :, 1] = -1 * stroke_sample[:, :, 1]
     save_path = os.path.join(self.log_dir, "")
-    for idx, sample in samples.items():
-      if isinstance(sample["stroke"], dict):
-        xy_stroke = sample["stroke"]["mu"]
-      else:
-        xy_stroke = sample["stroke"]
 
-      stroke_tensor = np.concatenate([xy_stroke, sample["pen"]], axis=-1)
-      stroke_list = self.ink_batch_to_strokes(self.undo_preprocessing,
-                                              stroke_tensor,
-                                              sample.get("start_coord", None),
-                                              sample.get("seq_len", None))
-      if num_strokes:
-        stroke_list = stroke_list[:min(num_strokes, xy_stroke.shape[0])]
-
-      self.render_sample(
-          strokes=stroke_list,
-          save_path=save_path + str(idx) + "_" + save_name,
-          n_strokes=self.n_rendered_strokes,
-          animate=self.animate,
-          x_borders=x_borders,
-          y_borders=y_borders,
-          colors=colors,
-          marker_size=self.marker_size)
+    stroke_list = np.split(stroke_sample[0], np.where(stroke_sample[0, :, 2] == 1)[0] + 1)
+    if len(stroke_list) > 1:
+      stroke_list = stroke_list[:-1]
+    self.render_sample(
+        strokes=stroke_list,
+        save_path=save_path + save_name,
+        n_strokes=self.n_rendered_strokes,
+        animate=self.animate,
+        x_borders=x_borders,
+        y_borders=y_borders,
+        colors=colors,
+        marker_size=self.marker_size)
 
   def vis_stroke(self,
                  sample,
@@ -282,9 +240,8 @@ class InkVisualizer(object):
     First extract the strokes by ignoring the padding and then undo the
     pre-processing.
     Args:
-      samples: dict of diagram samples where each sample is also a dictionary
-        containing the ink data like stroke and pen with shape (batch,
-        max_seq_len, ...).
+      sample (dict): a diagram sample containing the ink data like stroke and
+        pen with shape (batch, max_seq_len, ...).
       save_name:
       num_strokes: # of strokes to be rendered (stroke_list[:num_strokes]).
       x_borders: a tuple of min, max x coordinates.
@@ -316,6 +273,54 @@ class InkVisualizer(object):
         y_borders=y_borders,
         colors=colors,
         marker_size=self.marker_size)
+
+  def vis_strokes_dict(self,
+                       samples,
+                       save_name,
+                       num_strokes=None,
+                       x_borders=None,
+                       y_borders=None,
+                       colors=None):
+    """Visualizes a number of ink samples stored as a batch of padded strokes.
+
+    First extract the strokes by ignoring the padding and then undo the
+    pre-processing.
+    Args:
+      samples: dict of diagram samples where each sample is also a dictionary
+        containing the ink data like stroke and pen with shape (batch,
+        max_seq_len, ...).
+      save_name:
+      num_strokes: # of strokes to be rendered (stroke_list[:num_strokes]).
+      x_borders: a tuple of min, max x coordinates.
+      y_borders: a tuple of min, max y coordinates.
+      colors: list of colors per stroke.
+
+    Returns:
+    """
+    save_path = os.path.join(self.log_dir, "")
+    for idx, sample in samples.items():
+      if isinstance(sample["stroke"], dict):
+        xy_stroke = sample["stroke"]["mu"]
+      else:
+        xy_stroke = sample["stroke"]
+    
+      stroke_tensor = np.concatenate([xy_stroke, sample["pen"]], axis=-1)
+      stroke_list = self.ink_batch_to_strokes(self.undo_preprocessing,
+                                              stroke_tensor,
+                                              sample.get("start_coord", None),
+                                              sample.get("seq_len", None))
+      if num_strokes:
+        stroke_list = stroke_list[:min(num_strokes, xy_stroke.shape[0])]
+    
+      self.render_sample(
+          strokes=stroke_list,
+          save_path=save_path + str(idx) + "_" + save_name,
+          n_strokes=self.n_rendered_strokes,
+          animate=self.animate,
+          x_borders=x_borders,
+          y_borders=y_borders,
+          colors=colors,
+          marker_size=self.marker_size)
 
   @classmethod
   def render_sample(cls,
