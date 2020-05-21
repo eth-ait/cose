@@ -398,8 +398,9 @@ class PredictiveInkModel(BaseModel):
                                              target_cond=target_pos,
                                              seq_len=seq_len),
                                  training=False)
+    sample_ = self.predictive_model.output_layer.draw_sample(out_, greedy=True)
     out_ = self.predictive_model.output_layer.reshape_dist_params(out_)
-    out_["embedding_sample"] = self.predictive_model.output_layer.draw_sample(out_, greedy=True)
+    out_["embedding_sample"] = sample_
     return out_
   
   @tf.function(input_signature=[tf.TensorSpec(shape=[None, None, 8], dtype=tf.float32),
@@ -413,8 +414,9 @@ class PredictiveInkModel(BaseModel):
                                            target_cond=None,
                                            seq_len=seq_len),
                                training=False)
-    out_ = self.predictive_model.output_layer.reshape_dist_params(out_)
-    out_["position_sample"] = self.position_model.output_layer.draw_sample(out_, greedy=True)
+    sample_ = self.position_model.output_layer.draw_sample(out_, greedy=True)
+    out_ = self.position_model.output_layer.reshape_dist_params(out_)
+    out_["position_sample"] = sample_
     return out_
 
   def loss(self, predictions, targets, seq_len=None, prefix="", training=False):
