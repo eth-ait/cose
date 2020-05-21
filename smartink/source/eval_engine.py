@@ -57,7 +57,7 @@ class EvalEngine(object):
     self.predictive_model = predictive_model
     self.model = self.embedding_model if predictive_model is None else predictive_model
     self.gt_len_decoding = True  # Whether to use GT sequence length.
-    self.save_video = False  # Whether to use GT sequence length.
+    self.save_video = True  # Whether to use GT sequence length.
     
     self.metrics = MetricEngine(eval_dataset.np_undo_preprocessing,
                                 metrics=[C.METRIC_CHAMFER],
@@ -424,13 +424,13 @@ class EvalEngine(object):
       # self.__predict_loo(input_batch, target_batch, embeddings, idx)
 
       # (4) Predict the next stroke given only the strokes so far.
-      # self.__predict_ordered(input_batch, target_batch, embeddings, idx, plot_x=(x_min, x_max), plot_y=(y_min, y_max))
+      self.__predict_ordered(input_batch, target_batch, embeddings, idx, plot_x=(x_min, x_max), plot_y=(y_min, y_max))
 
       # (5) Auto-regressive prediction with random embeddings.
       self.__predict_ar(input_batch, target_batch, embeddings, idx)
 
-      # (6) Auto-regressive prediction with the best embedding.
-      self.__predict_ar_best_embedding(input_batch, target_batch, embeddings, idx)
+      # # (6) Auto-regressive prediction with the best embedding.
+      # self.__predict_ar_best_embedding(input_batch, target_batch, embeddings, idx)
 
       # (7) Predict the next stroke given a predefined set of strokes.
       # self.__predict_random(input_batch, target_batch, embeddings, idx)

@@ -12,6 +12,7 @@ import json
 import os
 import numpy as np
 import tensorflow as tf
+from rdp import rdp
 
 from common.constants import Constants as C
 from smartink.util.utils import err_unknown_type
@@ -301,3 +302,11 @@ class Dataset(object):
     
     affine_mat = tf.matmul(shear_mat, rot_scale_mat)
     return tf.matmul(sample, affine_mat)
+
+  @tf.function(input_signature=[tf.TensorSpec([None, 3], tf.float32),
+                                tf.TensorSpec(None, tf.float32)])
+  def tf_rdp_resampling(self, sequence, epsilon):
+    """Ramer-Douglas-Peucker re-sampling."""
+    resampled =  tf.numpy_function(rdp, [sequence, epsilon], tf.float32)
+    resampled.set_shape([None, 3])
+    return resampled

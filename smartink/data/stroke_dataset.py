@@ -13,6 +13,7 @@ import math
 import os
 import numpy as np
 import tensorflow as tf
+from rdp import rdp
 
 from smartink.data.base_dataset import Dataset
 from common.constants import Constants as C
@@ -289,7 +290,7 @@ class TFRecordStroke(Dataset):
                           true_fn=lambda: sample[key_ink],
                           false_fn=lambda: tf.gather_nd(sample[key_ink], padded_t_indices))
     sampled_seq_len = tf.cond(pred=selected_len[0] == 0,
-                          true_fn=lambda: sample[key_len],
+                          true_fn=lambda: tf.cast(sample[key_len], tf.int64),
                           false_fn=lambda: tf.cast(selected_len[0], tf.int64))
     
     if self.gt_targets:
@@ -468,7 +469,31 @@ class TFRecordStroke(Dataset):
     scale_ = tf.concat([scale_xy, tf.ones_like(scale_xy)], axis=0)
     sample["ink"] *= scale_
     return sample
+  
+  def pp_rdp_resampling(self, sample):
+    """Ramer-Douglas-Peucker re-sampling in tf.data pipeline.
+    
+    Beware! It is extremely slow. Hence, we are not using during training. It
+    might still be useful in offline data pre-processing.
+    """
+    # Third index is the timestamp.
+    xyp = tf.concat([sample["ink"][0, :, 0:2], sample["ink"][0, :, 3:]], axis=-1)
+    # Need to scale up for rdp re-sampling. We undo it afterwards.
+    xyp = tf.expand_dims(self.tf_rdp_resampling(xyp*3000.0, epsilon=2.0)/3000.0, axis=0)
 
+    # TODO(aksan) Insert a dummy timestamp for now. RDP returns a mask. Use that!
+    xytp = tf.concat([xyp[:, :, 0:2], tf.zeros_like(xyp[:, :, 2:3]), xyp[:, :, 2:3]], axis=-1)
+    
+    if self.gt_targets:
+      if "target_ink" not in sample:
+        sample["target_ink"] = sample["ink"]
+        sample["target_stroke_length"] = sample["stroke_length"]
+        
+    sample["ink"] = xytp
+    sample["stroke_length"] = tf.shape(xytp)[1]
+    return sample
+    
+  
   def pp_temporal_resampling(self, sample):
     """Uniform re-sampling over time dimension."""
     pen = sample["ink"][:, -1:]
@@ -917,6 +942,7 @@ class TFRecordBatchDiagram(TFRecordStroke):
     return sample
     
   def pp_random_temporal_resampling(self, sample):
+    raise Exception("It is buggy for TFRecordBatchDiagram. Selected steps can be in the padded area.")
     key_len = "stroke_length"
     key_ink = "ink"
     # Drop steps with a very low probability if stroke length is already < 20.
@@ -1131,6 +1157,8 @@ class TFRecordSingleDiagram(TFRecordStroke):
                pp_relative_pos=True,
                normalize=False,
                run_mode=C.RUN_ESTIMATOR,
+               batch_size=1,
+               shuffle=False,
                **kwargs):
     super(TFRecordSingleDiagram, self).__init__(
         data_path,
@@ -1306,31 +1334,8 @@ class TFRecordSingleDiagram(TFRecordStroke):
 
 
 if __name__ == "__main__":
-  config = tf.compat.v1.ConfigProto()
-  config.gpu_options.allow_growth = True
-  config.gpu_options.per_process_gpu_memory_fraction = 0.5
-  tf.compat.v1.enable_eager_execution(config=config)
-
-  def log_stats(stats, tag="Online"):
-    """Logs statistics.
-
-    Args:
-      stats:
-      tag:
-
-    Returns:
-    """
-    print("[{2}] mean: {0}, std: {1}".format(stats["mean_all"],
-                                             stats["var_all"], tag))
-    print("[{2}] mean channel: {0}, std channel: {1}".format(
-        stats["mean_channel"], stats["var_channel"], tag))
-    print("[{1}] # samples: {0}".format(stats["n_samples"], tag))
-    print("[{2}] min value: {0}, max value: {1}".format(stats["min_all"],
-                                                        stats["max_all"], tag))
-    print("[{3}] min length: {0}, mean length: {1}, max length: {2}".format(
-        stats["min_seq_len"], stats["mean_seq_len"], stats["max_seq_len"], tag))
-    print("============")
-  
+  # from tensorflow.python.framework.ops import disable_eager_execution
+  # disable_eager_execution()
 
   DATA_DIR = "/local/home/emre/Projects/google/data/didi_wo_text/"
   tfrecord_pattern = "diagrams_wo_text_20200131-?????-of-?????"
@@ -1341,34 +1346,11 @@ if __name__ == "__main__":
   META_FILE = "didi_wo_text-stats-origin_abs_pos.npy"
   data_path_ = [os.path.join(DATA_DIR, SPLIT, tfrecord_pattern)]
 
-  train_data = TFRecordStroke(
-      data_path=data_path_,
-      meta_data_path=DATA_DIR + META_FILE,
-      batch_size=1,
-      shuffle=False,
-      normalize=True,
-      pp_to_origin=True,
-      pp_relative_pos=False,
-      run_mode=C.RUN_EAGER,
-      max_length_threshold=201,
-      fixed_len=False,
-      mask_pen=False,
-      scale_factor=0,
-      resampling_factor=0,
-      random_noise_factor=0,
-      gt_targets=True,
-      n_t_targets=200,
-      concat_t_inputs=False,
-      reverse_prob=0,
-      t_drop_ratio=0.6,
-      affine_prob=0,
-      )
-
-  # train_data = TFRecordBatchDiagram(
+  # train_data = TFRecordStroke(
   #     data_path=data_path_,
   #     meta_data_path=DATA_DIR + META_FILE,
   #     batch_size=1,
-  #     shuffle=True,
+  #     shuffle=False,
   #     normalize=False,
   #     pp_to_origin=True,
   #     pp_relative_pos=False,
@@ -1376,16 +1358,39 @@ if __name__ == "__main__":
   #     max_length_threshold=201,
   #     fixed_len=False,
   #     mask_pen=False,
-  #
-  #     affine_prob=0.3,
-  #     reverse_prob=0,
   #     scale_factor=0,
-  #     resampling_factor=0,
+  #     resampling_factor=99,
+  #     random_noise_factor=0,
   #     gt_targets=True,
-  #     n_t_targets=4,
+  #     n_t_targets=200,
   #     concat_t_inputs=False,
-  #     t_drop_ratio = 0,
+  #     reverse_prob=0,
+  #     t_drop_ratio=0,
+  #     affine_prob=0,
   #     )
+
+  train_data = TFRecordBatchDiagram(
+      data_path=data_path_,
+      meta_data_path=DATA_DIR + META_FILE,
+      batch_size=1,
+      shuffle=True,
+      normalize=False,
+      pp_to_origin=True,
+      pp_relative_pos=False,
+      run_mode=C.RUN_EAGER,
+      max_length_threshold=201,
+      fixed_len=False,
+      mask_pen=False,
+
+      affine_prob=0.3,
+      reverse_prob=0,
+      scale_factor=0,
+      resampling_factor=0,
+      gt_targets=True,
+      n_t_targets=4,
+      concat_t_inputs=False,
+      t_drop_ratio = 0,
+      )
 
   from visualization.visualization import InkVisualizer
   from smartink.util.utils import dict_tf_to_numpy
@@ -1393,35 +1398,50 @@ if __name__ == "__main__":
   import matplotlib.pyplot as plt
   from visualization.visualization import render_strokes
   from smartink.util.ink import padded_to_stroke_list
+  
   vis_engine = InkVisualizer(train_data.np_undo_preprocessing,
                              DATA_DIR,
                              animate=False)
+  
   seq_lens = []
   starts = []
   sample_id = 0
   ts = str(int(time.time()))
   lens = []
-
+  
   try:
     while True:
       sample_id += 1
       input_batch, target_batch = train_data.get_next()
 
-      # vis_sample = dict()
-      # vis_sample[sample_id] = dict_tf_to_numpy(target_batch)
-      # vis_engine.vis_strokes(vis_sample, "diagram-" + ts)
+      # vis_engine.vis_stroke(dict_tf_to_numpy(target_batch), str(sample_id) + "_diagram-" + ts)
 
-      # vis_sample = dict()
-      # key_ = str(sample_id) + "_" + "inp"
-      # input_batch = dict_tf_to_numpy(input_batch)
-      # vis_sample[key_] = dict()
-      # vis_sample[key_]["stroke"] = input_batch["encoder_inputs"][:, :, 0:2]
-      # vis_sample[key_]["pen"] = input_batch["encoder_inputs"][:, :, 2:]
-      # # vis_sample[key_]["start_coord"] = input_batch["start_coord"]
-      # vis_sample[key_]["seq_len"] = input_batch["seq_len"]
-      # strokes = padded_to_stroke_list(vis_sample[key_], train_data.np_undo_preprocessing)
-      # fig, ax = render_strokes(strokes)
+      plt.close()
+      vis_sample = dict()
+      key_ = str(sample_id) + "_" + "t_with_ramer_resampled"
 
+      ramer_stroke = rdp(target_batch["stroke"][0].numpy()*3000, epsilon=2.0)/3000
+      ramer_stroke[:, 1] *= -1
+      ramer_pen = np.zeros_like(ramer_stroke[:, 0:1])
+      ramer_pen[:, -1] = 1
+      ramer_stroke3d = np.concatenate([ramer_stroke, ramer_pen], axis=-1)
+      fig, ax = render_strokes([ramer_stroke3d])
+      print(key_ + " length: " + str(ramer_stroke3d.shape[0]))
+
+      t_target_ink = dict()
+      tmp_ = np.expand_dims(input_batch["t_target_ink"], axis=0)
+      t_target_ink["stroke"] = tmp_[:, :, 0:2]
+      t_target_ink["pen"] = tmp_[:, :, 2:]
+      t_target_ink["seq_len"] = np.array([tmp_.shape[1]])
+      t_target_strokes = padded_to_stroke_list(t_target_ink,
+                                               train_data.np_undo_preprocessing)
+
+      plt.scatter(t_target_strokes[0][:, 0], t_target_strokes[0][:, 1],
+                  color="k")
+      fig.savefig(os.path.join(vis_engine.log_dir, key_ + ".png"),
+                  format="png", bbox_inches='tight', dpi=200)
+
+      plt.close()
       vis_sample = dict()
       key_ = str(sample_id) + "_" + "t_with_original"
       target_batch = dict_tf_to_numpy(target_batch)
@@ -1432,6 +1452,7 @@ if __name__ == "__main__":
       vis_sample[key_]["seq_len"] = target_batch["seq_len"]
       strokes = padded_to_stroke_list(vis_sample[key_], train_data.np_undo_preprocessing)
       fig, ax = render_strokes(strokes)
+      print(key_ + " length: " + str(strokes[0].shape[0]))
 
       t_target_ink = dict()
       tmp_ = np.expand_dims(input_batch["t_target_ink"], axis=0)
@@ -1455,6 +1476,7 @@ if __name__ == "__main__":
       vis_sample[key_]["seq_len"] = input_batch["seq_len"]
       strokes = padded_to_stroke_list(vis_sample[key_], train_data.np_undo_preprocessing)
       fig, ax = render_strokes(strokes)
+      print(key_ + " length: " + str(strokes[0].shape[0]))
 
       t_target_ink = dict()
       tmp_ = np.expand_dims(input_batch["t_target_ink"], axis=0)
@@ -1466,8 +1488,8 @@ if __name__ == "__main__":
       plt.scatter(t_target_strokes[0][:, 0], t_target_strokes[0][:, 1], color="k")
       fig.savefig(os.path.join(vis_engine.log_dir, key_+".png"),
                   format="png", bbox_inches='tight', dpi=200)
-      plt.close()
-      if sample_id == 1:
+      
+      if sample_id == 5:
         break
         
   except tf.errors.OutOfRangeError:
@@ -1482,4 +1504,3 @@ if __name__ == "__main__":
   #   # seq_lens.append(input_batch["seq_len"].numpy().max())
   # seq_lens = np.array(seq_lens)
   # print("Done")
-  
