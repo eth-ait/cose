@@ -126,7 +126,10 @@ class TEmbedding(BaseModel):
         self.net_decoder.add(tf.keras.layers.Dropout(self.decoder_drop_rate))
 
     # Pen and stroke outputs.
-    self.decoder_out_pen = tf.keras.layers.Dense(1, name="out_pen", kernel_regularizer=self.kernel_regularizer, bias_regularizer=self.kernel_regularizer)
+    if config_loss["pen"]["eval_only"]:
+      self.decoder_out_pen = None
+    else:
+      self.decoder_out_pen = tf.keras.layers.Dense(1, name="out_pen", kernel_regularizer=self.kernel_regularizer, bias_regularizer=self.kernel_regularizer)
 
     # Build output model depending on the loss type.
     if self.config_loss["stroke"]["loss_type"] == C.NLL_NORMAL:
@@ -239,13 +242,18 @@ class TEmbedding(BaseModel):
     # Running decoder.
     decoder_hidden = self.net_decoder(decoder_inp, training=training)
     stroke_logits = self.decoder_out_stroke(decoder_hidden)
-    pen_logits = self.decoder_out_pen(decoder_hidden)
+    if self.decoder_out_pen is not None:
+      pen_logits = self.decoder_out_pen(decoder_hidden)
+      # Calculate pen-up probability from the logits.
+      pen_prob = tf.nn.sigmoid(pen_logits)
+      pen_binary = tf.compat.v1.where(
+          tf.greater(pen_prob, tf.fill(tf.shape(input=pen_prob), self.pen_threshold)),
+          tf.fill(tf.shape(input=pen_prob), 1.0), tf.fill(tf.shape(input=pen_prob), 0.0))
+    else:
+      pen_logits = tf.ones_like(stroke_logits["mu"][:, 0:1])
+      pen_binary = pen_logits
+      pen_prob = pen_logits
 
-    # Calculate pen-up probability from the logits.
-    pen_prob = tf.nn.sigmoid(pen_logits)
-    pen_binary = tf.compat.v1.where(
-        tf.greater(pen_prob, tf.fill(tf.shape(input=pen_prob), self.pen_threshold)),
-        tf.fill(tf.shape(input=pen_prob), 1.0), tf.fill(tf.shape(input=pen_prob), 0.0))
     stroke_sample = self.decoder_out_stroke.draw_sample(
         stroke_logits, greedy=True)
 
@@ -387,7 +395,8 @@ class TEmbedding(BaseModel):
     if self.regularize_decoder:
       dec_all = self.net_decoder.losses
       dec_all.extend(self.decoder_out_stroke.losses)
-      dec_all.extend(self.decoder_out_pen.losses)
+      if self.decoder_out_pen is not None:
+        dec_all.extend(self.decoder_out_pen.losses)
       dec_reg = tf.math.add_n(dec_all)
       output_losses["loss"] += dec_reg
       output_losses["decoder_l2"] = dec_reg
