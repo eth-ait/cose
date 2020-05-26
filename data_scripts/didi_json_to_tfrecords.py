@@ -6,65 +6,81 @@ import io
 import json
 import os
 import random
-import statistics
+import functools
 import tensorflow as tf
 
-from googleapiclient.discovery import build
-# from google.colab import auth
-# from google.colab import files
-from googleapiclient.http import MediaIoBaseDownload
-# from apiclient import errors
-
 import numpy as np
+from rdp import rdp
 
 # Setup and settings.
 
 # Settings
 # JSON_FILES=["diagrams_wo_text_20200131.ndjson", "diagrams_20200131.ndjson"]
-JSON_FILES=["diagrams_20200131.ndjson"]
+JSON_FILES=["diagrams_wo_text_20200131.ndjson"]
+# JSON_FILES=["full_raw_cat.ndjson"]
 PROJECT_ID = "digital-ink-diagram-data"
 BUCKET_NAME = "digital_ink_diagram_data"
-LOCAL_DATA_DIR = "./"
+LOCAL_DATA_DIR = "/local/home/emre/Projects/google/data/didi_ndjson/"
 NUM_TFRECORD_SHARDS = 10
+# DATA_FORMAT = "sketch_rnn"
+DATA_FORMAT = "didi"
 
 # auth.authenticate_user()
 
 # Creating the service client.
-gcs_service = build("storage", "v1")
-
+# gcs_service = build("storage", "v1")
+#
 # Download the data
-def download_file_from_gcs(filename):
-  directory_name = os.path.join(LOCAL_DATA_DIR, os.path.dirname(filename))
-  if not os.path.exists(directory_name):
-    os.mkdir(directory_name)
-  with open(os.path.join(LOCAL_DATA_DIR, filename), "wb") as f:
-    request = gcs_service.objects().get_media(bucket=BUCKET_NAME, object=filename)
-    media = MediaIoBaseDownload(f, request)
+# def download_file_from_gcs(filename):
+#   directory_name = os.path.join(LOCAL_DATA_DIR, os.path.dirname(filename))
+#   if not os.path.exists(directory_name):
+#     os.mkdir(directory_name)
+#   with open(os.path.join(LOCAL_DATA_DIR, filename), "wb") as f:
+#     request = gcs_service.objects().get_media(bucket=BUCKET_NAME, object=filename)
+#     media = MediaIoBaseDownload(f, request)
+#
+#     done = False
+#     while not done:
+#       status, done = media.next_chunk()
+#       if not done:
+#         print("Downloading '%s': %-3.0f%%" % (filename, status.progress() * 100))
+#
+# def get_label_file(type, labelid):
+#   file_id = os.path.join(type, "%s.%s" % (labelid, type))
+#   fname = os.path.join(LOCAL_DATA_DIR, file_id)
+#   if os.path.exists(fname):
+#     return fname
+#   download_file_from_gcs(file_id)
+#   return fname
+#
+# for json_file in JSON_FILES:
+#   download_file_from_gcs(json_file)
+#
+#
+# def get_label_file_contents(type, labelid):
+#   get_label_file(type, labelid)
+#   with open(os.path.join(LOCAL_DATA_DIR, type, "%s.%s" %(labelid, type))) as f:
+#     return f.read()
 
-    done = False
-    while not done:
-      status, done = media.next_chunk()
-      if not done:
-        print("Downloading '%s': %-3.0f%%" % (filename, status.progress() * 100))
+def split_and_pad_strokes(stroke_list):
+  max_len = np.array([len(stroke[0]) for stroke in stroke_list]).max()
+  
+  strokes = []
+  stroke_lengths = []
+  for stroke in stroke_list:
+    stroke_len = len(stroke[0])
+    padded_stroke_with_pen = np.zeros([1, max_len, 4], dtype=np.float32)
+    padded_stroke_with_pen[0, 0:stroke_len, 0] = stroke[0]
+    padded_stroke_with_pen[0, 0:stroke_len, 1] = stroke[1]
+    padded_stroke_with_pen[0, 0:stroke_len, 2] = stroke[2]
+    padded_stroke_with_pen[0, stroke_len - 1, 3] = 1
+    strokes.append(padded_stroke_with_pen)
+    stroke_lengths.append(stroke_len)
+  
+  all_strokes = np.concatenate(strokes, axis=0).astype(float)  # (num_strokes, max_len, 4)
+  all_stroke_lengths = np.array(stroke_lengths).astype(int)
+  return all_strokes, all_stroke_lengths
 
-def get_label_file(type, labelid):
-  file_id = os.path.join(type, "%s.%s" % (labelid, type))
-  fname = os.path.join(LOCAL_DATA_DIR, file_id)
-  if os.path.exists(fname):
-    return fname
-  download_file_from_gcs(file_id)
-  return fname
-
-for json_file in JSON_FILES:
-  download_file_from_gcs(json_file)
-
-
-# This cell converts the file to tf.Record of tf.Example.
-# This cell takes long time to run.
-def get_label_file_contents(type, labelid):
-  get_label_file(type, labelid)
-  with open(os.path.join(LOCAL_DATA_DIR, type, "%s.%s" %(labelid, type))) as f:
-    return f.read()
 
 def ink_to_tfexample(ink, dot=None):
   """Takes a LabeledInk and outputs a TF.Example with stroke information.
@@ -86,23 +102,7 @@ def ink_to_tfexample(ink, dot=None):
     features["label_dot"] = tf.train.Feature(
         bytes_list=tf.train.BytesList(value=[dot.encode("utf-8")]))
 
-  max_len = np.array([len(stroke[0]) for stroke in ink["drawing"]]).max()
-
-  strokes = []
-  stroke_lengths = []
-  for stroke in ink["drawing"]:
-    stroke_len = len(stroke[0])
-    padded_stroke_with_pen = np.zeros([1, max_len, 4], dtype=np.float32)
-    padded_stroke_with_pen[0, 0:stroke_len, 0] = stroke[0]
-    padded_stroke_with_pen[0, 0:stroke_len, 1] = stroke[1]
-    padded_stroke_with_pen[0, 0:stroke_len, 2] = stroke[2]
-    padded_stroke_with_pen[0, stroke_len - 1, 3] = 1
-    strokes.append(padded_stroke_with_pen)
-    stroke_lengths.append(stroke_len)
-
-  all_strokes = np.concatenate(strokes, axis=0).astype(float)  # (num_strokes, max_len, 4)
-  all_stroke_lengths = np.array(stroke_lengths).astype(int)
-
+  all_strokes, all_stroke_lengths = split_and_pad_strokes(ink["drawing"])
   features["ink"] = tf.train.Feature(
       float_list=tf.train.FloatList(value=all_strokes.flatten()))
   features["stroke_length"] = tf.train.Feature(
@@ -111,17 +111,32 @@ def ink_to_tfexample(ink, dot=None):
       int64_list=tf.train.Int64List(value=all_strokes.shape))
   features["num_strokes"] = tf.train.Feature(
       int64_list=tf.train.Int64List(value=[len(ink["drawing"])]))
+  
+  if "rdp_ink" in ink:
+    rdp_all_strokes, rdp_all_stroke_lengths = split_and_pad_strokes(ink["rdp_ink"])
+    features["rdp_ink"] = tf.train.Feature(
+        float_list=tf.train.FloatList(value=rdp_all_strokes.flatten()))
+    features["rdp_stroke_length"] = tf.train.Feature(
+        int64_list=tf.train.Int64List(value=rdp_all_stroke_lengths))
+    features["rdp_shape"] = tf.train.Feature(
+        int64_list=tf.train.Int64List(value=rdp_all_strokes.shape))
+    features["rdp_num_strokes"] = tf.train.Feature(
+        int64_list=tf.train.Int64List(value=[len(ink["rdp_ink"])]))
+  
   example = tf.train.Example(features=tf.train.Features(feature=features))
   return example
 
 @contextlib.contextmanager
-def create_tfrecord_writers(output_file, num_output_shards):
+def create_tfrecord_writers(output_dir, output_file, num_output_shards):
   writers = collections.defaultdict(list)
   for split in ["train", "valid", "test"]:
+    output_dir_path = os.path.join(output_dir, split)
+    if not os.path.exists(output_dir_path):
+      os.mkdir(output_dir_path)
     for i in range(num_output_shards):
       writers[split].append(
-          tf.io.TFRecordWriter("%s-%s-%05i-of-%05i" %
-                                      (output_file, split, i, num_output_shards)))
+          tf.io.TFRecordWriter("%s/%s-%05i-of-%05i" %
+                                      (output_dir_path, output_file, i, num_output_shards)))
   try:
     yield writers
   finally:
@@ -191,18 +206,59 @@ def resample_ink(drawing, timestep):
   resampled = [resample_stroke(s, timestep) for s in drawing]
   return resampled
 
+
+def sketch_rnn_preprocess(raw_ink, rdp_epsilon=2.0):
+  # ignoring the timestamp.
+  processed_ink = []
+  for stroke in raw_ink:
+    xy = np.transpose(np.stack(stroke[0:2]), [1, 0])
+    rdp_mask = rdp(xy, epsilon=rdp_epsilon, return_mask=True)
+    rdp_x = np.array(stroke[0])[rdp_mask]
+    rdp_y = np.array(stroke[1])[rdp_mask]
+    rdp_t = np.array(stroke[2])[rdp_mask]
+    # pen = np.zeros_like(rdp_x)
+    # pen[-1] = 1
+    # rdp_stroke = np.transpose(np.vstack([rdp_x, rdp_y, rdp_t, pen]), [1,0])
+    # processed_ink.append(rdp_stroke)
+    processed_ink.append([rdp_x.tolist(), rdp_y.tolist(), rdp_t.tolist()])
+  return processed_ink
+
+
+def didi_preprocess(raw_ink, timestep=20):
+  raw_ink = size_normalization(raw_ink)
+  raw_ink = resample_ink(raw_ink, timestep)
+  return raw_ink
+
+
+if DATA_FORMAT == "sketch_rnn":
+  preprocessing_fn = functools.partial(sketch_rnn_preprocess, delta=False, rdp_epsilon=2.0)
+elif DATA_FORMAT == "didi":
+  preprocessing_fn = functools.partial(didi_preprocess, timestep=20)
+else:
+  raise Exception()
+
 for json_file in JSON_FILES:
+  i = 0
   counts = collections.defaultdict(int)
-  with create_tfrecord_writers(os.path.join(LOCAL_DATA_DIR, json_file + ".tfrecord"), NUM_TFRECORD_SHARDS) as writers:
+  with create_tfrecord_writers(os.path.join(LOCAL_DATA_DIR), json_file.split(".")[0], NUM_TFRECORD_SHARDS) as writers:
     with open(os.path.join(LOCAL_DATA_DIR, json_file)) as f:
       for line in f:
         ink = json.loads(line)
-        dot = get_label_file_contents("dot", ink["label_id"])
-        ink["drawing"] = size_normalization(ink["drawing"])
-        ink["drawing"] = resample_ink(ink["drawing"], 20)
-
+        
+        # Ramer resampling.
+        ink["rdp_ink"] = sketch_rnn_preprocess(ink["drawing"], rdp_epsilon=2.0)
+        # Normalize ramer resampled data.
+        # ink["rdp_ink"] = size_normalization(ink["rdp_ink"])
+        ink["drawing"] = didi_preprocess(ink["drawing"], timestep=20)
+        
+        # dot = get_label_file_contents("dot", ink["label_id"])
+        dot = None
         example = ink_to_tfexample(ink, dot)
         counts[ink["split"]] += 1
         writers[ink["split"]][pick_output_shard(NUM_TFRECORD_SHARDS)].write(example.SerializeToString())
+        
+        i += 1
+        if i %100 == 0:
+          print("# samples ", i)
 
   print ("Finished writing: %s train: %i valid: %i test: %i" %(json_file, counts["train"], counts["valid"], counts["test"]))

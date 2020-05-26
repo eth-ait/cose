@@ -26,6 +26,7 @@ from smartink.data.stroke_dataset import TFRecordSingleDiagram
 from smartink.models.stroke.t_emb import TEmbedding
 from smartink.models.stroke.seq2seq import InkSeq2Seq
 from smartink.models.sequence.rnn import RNN
+from smartink.models.sequence.rnn import RNNConditional
 from smartink.models.ink.predictive_models import PredictiveInkModel
 from smartink.models.sequence.transformer import TransformerAR
 from smartink.models.sequence.transformer import TransformerSeq2seqConditional
@@ -309,7 +310,16 @@ def get_config(FLAGS, experiment_id=None):
     err_unknown_type(FLAGS.predictive_model)
     
   # Sharing flags with the predictive model.
-  if FLAGS.position_model == "transformer":
+  if FLAGS.position_model == "rnn":
+    config.position_model = AttrDict(
+        name="rnn",
+        output_size=2,
+        cell_units=FLAGS.predictive_rnn_units,
+        cell_layers=FLAGS.predictive_rnn_layers,
+        cell_type=FLAGS.predictive_cell_type,
+        activation=C.RELU,
+    )
+  elif FLAGS.position_model == "transformer":
     config.position_model = AttrDict(
         name="transformer",
         output_size=2,
@@ -566,7 +576,7 @@ def build_predictive_model(config_, run_mode):
     
   if config_.predictive_model.get("name", "rnn") == "rnn":
   
-    predictive_model = RNN(
+    predictive_model = RNNConditional(
         output_size=config_.predictive_model.output_size,
         cell_units=config_.predictive_model.cell_units,
         cell_layers=config_.predictive_model.cell_layers,
@@ -595,7 +605,19 @@ def build_predictive_model(config_, run_mode):
     err_unknown_type(config_.predictive_model.name)
 
   position_model = None
-  if config_.get("position_model", None) is not None:
+  if config_.predictive_model.get("name", "rnn") == "rnn":
+    position_model = RNNConditional(
+        output_size=2,
+        cell_units=config_.position_model.cell_units,
+        cell_layers=config_.position_model.cell_layers,
+        cell_type=config_.position_model.cell_type,
+        return_sequences=False,
+        return_state=False,
+        run_mode=run_mode,
+        config_loss=config_.loss.predicted_pos.predicted_pos
+        )
+    
+  elif config_.get("position_model", None) is not None:
     position_model = TransformerSeq2seqConditional(
         output_size=2,
         num_layers=config_.position_model.layers,

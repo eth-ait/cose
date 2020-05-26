@@ -145,3 +145,43 @@ class RNN(BaseModel):
                             config.cell_units)
   
     return dict(model=rnn, model_name="RNN")
+  
+
+class RNNConditional(RNN):
+  def __init__(self,
+               cell_type,
+               cell_units,
+               cell_layers,
+               bidirectional=False,
+               return_state=True,
+               return_sequences=True,
+               output_size=0,
+               config_loss=None,
+               name="rnn",
+               run_mode=C.RUN_STATIC,
+               **kwargs):
+    super(RNNConditional, self).__init__(
+        cell_type,
+        cell_units,
+        cell_layers,
+        bidirectional,
+        return_state,
+        return_sequences,
+        output_size,
+        config_loss,
+        name,
+        run_mode,
+        **kwargs)
+    
+  def call(self, inputs, training=None, **kwargs):
+    target_cond = inputs["target_cond"]
+    input_cond = inputs["input_cond"]
+    input_seq = inputs["input_seq"]
+
+    if target_cond is not None:
+      n_input = tf.shape(input=input_cond)[1]
+      target_cond_inp = tf.tile(target_cond, [1, n_input, 1])
+      inputs["input_seq"] = tf.concat([input_seq, input_cond, target_cond_inp], axis=-1)
+    else:
+      inputs["input_seq"] = tf.concat([input_seq, input_cond], axis=-1)
+    return super(RNNConditional, self).call(inputs, training, **kwargs)
