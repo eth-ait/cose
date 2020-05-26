@@ -39,7 +39,6 @@ def define_flags():
   flags.DEFINE_bool("skip_normalization", False, "")
   flags.DEFINE_bool("mask_encoder_pen", False,
                     "whether to mask pen information for encoder or not.")
-  flags.DEFINE_bool("fixed_len_seq", False, "pad sequences to have fixed length of max_length_threshold.")
   flags.DEFINE_integer("resampling_factor", 0, "Temporal resampling rate. Randomly sampled between 1 and the given value.")
   flags.DEFINE_float("scale_factor", 0, "Amount of scaling.")
   flags.DEFINE_float("affine_prob", 0, "Chance of applying affine transf.")
@@ -75,8 +74,6 @@ def define_flags():
                       "type of rnn cell instance: " + C.GRU + " or " + C.LSTM)
   flags.DEFINE_bool("bidirectional_encoder", False,
                     "whether to use bidirectional rnn as encoder or not.")
-  flags.DEFINE_bool("encoder_cudnn", False,
-                    "whether to use cudnn optimized cells or not.")
   flags.DEFINE_float("encoder_rdropout", 0.0, "Recurrent ropout rate for the "
                                               "encoder cell.")
   
@@ -156,7 +153,6 @@ def get_config(FLAGS, experiment_id=None):
       batch_size=FLAGS.batch_size,
       max_length_threshold=201,
       mask_pen=FLAGS.mask_encoder_pen,
-      fixed_len=FLAGS.fixed_len_seq,
       resampling_factor=FLAGS.resampling_factor,
       t_drop_ratio=FLAGS.t_drop_ratio,
       gt_targets=FLAGS.gt_targets,
@@ -178,7 +174,6 @@ def get_config(FLAGS, experiment_id=None):
         cell_units=FLAGS.encoder_rnn_units,
         cell_layers=FLAGS.encoder_rnn_layers,
         cell_type=FLAGS.encoder_cell_type,
-        use_cudnn=FLAGS.encoder_cudnn,
         bidirectional_encoder=FLAGS.bidirectional_encoder,
         rec_dropout_rate=FLAGS.encoder_rdropout)
   elif FLAGS.encoder_model == "transformer":
@@ -207,7 +202,6 @@ def get_config(FLAGS, experiment_id=None):
         cell_units=FLAGS.encoder_rnn_units,  # Using the same hyper-param with the encoder.
         cell_layers=FLAGS.encoder_rnn_layers,
         cell_type=FLAGS.encoder_cell_type,
-        cudnn=FLAGS.encoder_cudnn,
         dropout_rate=FLAGS.decoder_dropout,
         dynamic_h0=FLAGS.decoder_dynamic_h0,
         repeat_vae_sample=FLAGS.repeat_vae_sample,
@@ -264,9 +258,6 @@ def get_config(FLAGS, experiment_id=None):
         out_key="embedding",
         reduce_type=C.R_MEAN_STEP,
         weight=FLAGS.reg_emb_weight)
-
-  if config.data.fixed_len:
-    config.loss.fixed_len_seq = config.data.max_length_threshold
     
   try:
     data_root = os.environ["PREDICTIVE_SKETCHING_DATA_DIR"]

@@ -29,7 +29,6 @@ class RNN(BaseModel):
                config_loss=None,
                name="rnn",
                run_mode=C.RUN_STATIC,
-               use_cudnn=False,
                **kwargs):
     """Constructor.
 
@@ -44,7 +43,6 @@ class RNN(BaseModel):
       config_loss: loss configuration.
       name:
       run_mode: eager, static or estimator.
-      use_cudnn:
       **kwargs:
 
     Raises:
@@ -59,11 +57,10 @@ class RNN(BaseModel):
     self.bidirectional = bidirectional
     self.return_state = return_state
     self.return_sequences = return_sequences
-    self.use_cudnn = use_cudnn
 
     self.output_size = output_size
 
-    self._output_layer = None
+    self.output_layer = None
     self._rnn_layer = tf.keras.Sequential()
 
     for i in range(self.cell_layers - 1):
@@ -73,8 +70,7 @@ class RNN(BaseModel):
           return_state=False,
           return_sequences=True,
           stateful=False,
-          name=name + "_" + str(i),
-          use_cudnn=use_cudnn)
+          name=name + "_" + str(i))
 
       if self.bidirectional:
         rnn_layer = tf.keras.layers.Bidirectional(
@@ -87,8 +83,7 @@ class RNN(BaseModel):
         return_state=return_state,
         return_sequences=return_sequences,
         stateful=False,
-        name=name,
-        use_cudnn=use_cudnn)
+        name=name)
     if self.bidirectional:
       rnn_layer = tf.keras.layers.Bidirectional(rnn_layer, merge_mode="concat")
     self._rnn_layer.add(rnn_layer)
@@ -97,18 +92,18 @@ class RNN(BaseModel):
     if output_size > 0:
       if config_loss is not None:
         if config_loss["loss_type"] == C.NLL_NORMAL:
-          self._output_layer = OutputModelNormal(self.output_size, logvar=True)
+          self.output_layer = OutputModelNormal(self.output_size, logvar=True)
         elif config_loss["loss_type"] == C.NLL_BINORMAL:
-          self._output_layer = OutputModelNormal2DDense(sigma_activation=tf.keras.activations.exponential)
+          self.output_layer = OutputModelNormal2DDense(sigma_activation=tf.keras.activations.exponential)
         elif config_loss["loss_type"] == C.NLL_GMM:
-          self._output_layer = OutputModelGMMDense(
+          self.output_layer = OutputModelGMMDense(
               out_units=self.output_size,
               num_components=config_loss["num_components"],
               sigma_activation=tf.keras.activations.exponential)
         else:
-          self._output_layer = OutputModelDeterministic(self.output_size, 0, 0)
+          self.output_layer = OutputModelDeterministic(self.output_size, 0, 0)
       else:
-        self._output_layer = OutputModelDeterministic(self.output_size, 0, 0)
+        self.output_layer = OutputModelDeterministic(self.output_size, 0, 0)
 
   def call(self, inputs, training=None, **kwargs):
     """Call method.
@@ -130,8 +125,8 @@ class RNN(BaseModel):
 
     rnn_hidden = self._rnn_layer(input_seq, mask=mask, training=training)
 
-    if self._output_layer is not None:
-      return self._output_layer(rnn_hidden, training=training)
+    if self.output_layer is not None:
+      return self.output_layer(rnn_hidden, training=training)
     else:
       return rnn_hidden
   

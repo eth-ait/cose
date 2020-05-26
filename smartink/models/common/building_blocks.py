@@ -155,7 +155,6 @@ class RNNUtils(object):
                     return_state,
                     stateful,
                     name,
-                    use_cudnn=False,
                     recurrent_dropout=0.0):
     """Generates an RNN layer.
 
@@ -166,41 +165,25 @@ class RNNUtils(object):
       return_state:
       stateful:
       name:
-      use_cudnn:
       recurrent_dropout:
 
     Returns:
     """
     cell_cls = None
-    if use_cudnn and tf.test.is_gpu_available():
-      if type_str == C.LSTM:
-        cell_cls = tf.compat.v1.keras.layers.CuDNNLSTM
-      elif type_str == C.GRU:
-        cell_cls = tf.compat.v1.keras.layers.CuDNNGRU
-      else:
-        err_unknown_type(type_str)
-
-      return cell_cls(
-          units=units,
-          return_sequences=return_sequences,
-          return_state=return_state,
-          stateful=stateful,
-          name=name)
+    if type_str == C.LSTM:
+      cell_cls = tf.keras.layers.LSTM
+    elif type_str == C.GRU:
+      cell_cls = tf.keras.layers.GRU
     else:
-      if type_str == C.LSTM:
-        cell_cls = tf.keras.layers.LSTM
-      elif type_str == C.GRU:
-        cell_cls = tf.keras.layers.GRU
-      else:
-        err_unknown_type(type_str)
+      err_unknown_type(type_str)
 
-      return cell_cls(
-          units=units,
-          return_sequences=return_sequences,
-          return_state=return_state,
-          stateful=stateful,
-          recurrent_dropout=recurrent_dropout,
-          name=name)
+    return cell_cls(
+        units=units,
+        return_sequences=return_sequences,
+        return_state=return_state,
+        stateful=stateful,
+        recurrent_dropout=recurrent_dropout,
+        name=name)
 
 
 class DenseLayers(tf.keras.Model):

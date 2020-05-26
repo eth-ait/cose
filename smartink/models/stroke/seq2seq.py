@@ -61,7 +61,6 @@ class InkSeq2Seq(BaseModel):
     self.n_cell_units = self.config_encoder["cell_units"]
     self.n_cell_layers = self.config_encoder["cell_layers"]
     self.cell_type = self.config_encoder["cell_type"]
-    self.use_cudnn = self.config_encoder["use_cudnn"]
     self.bidirectional_encoder = self.config_encoder["bidirectional_encoder"]
     self.recurrent_dropout = self.config_encoder.get("rec_dropout_rate", 0.0)
     
@@ -93,7 +92,6 @@ class InkSeq2Seq(BaseModel):
           return_sequences=True,
           stateful=False,
           name="encoder_rnn_" + str(idx + 1),
-          use_cudnn=self.use_cudnn,
           recurrent_dropout=self.recurrent_dropout)
       
       if self.bidirectional_encoder:
@@ -127,13 +125,14 @@ class InkSeq2Seq(BaseModel):
           return_state=True,
           return_sequences=True,
           stateful=False,
-          name="decoder_rnn_" + str(idx + 1),
-          use_cudnn=self.use_cudnn)
+          name="decoder_rnn_" + str(idx + 1))
       self.decoder_rnn.append(rnn_layer)
     
     # Pen and stroke outputs.
-    self.decoder_out_pen = tf.keras.layers.Dense(
-        1, activation=None, name="out_pen")
+    if config_loss["pen"]["eval_only"]:
+      self.decoder_out_pen = None
+    else:
+      self.decoder_out_pen = tf.keras.layers.Dense(1, activation=None, name="out_pen")
     
     # Build output model depending on the loss type.
     if self.config_loss["stroke"]["loss_type"] == C.NLL_NORMAL:
@@ -235,8 +234,9 @@ class InkSeq2Seq(BaseModel):
       embedding of size [batch_size, 1, latent_size]
     """
     rnn_layer = self.encoder_rnn[0]
-    encoder_rnn = rnn_layer(
-        inputs, mask=tf.sequence_mask(input_seq_len), training=training)
+    # non_zero_seq_len = tf.where(input_seq_len == 0, 1, input_seq_len)
+    non_zero_seq_len = tf.compat.v1.where(input_seq_len == 0, tf.ones_like(input_seq_len), input_seq_len)
+    encoder_rnn = rnn_layer(inputs, mask=tf.sequence_mask(non_zero_seq_len), training=training)
     
     if self.bidirectional_encoder:
       embedding_last_step = tf.concat([encoder_rnn[1], encoder_rnn[3]], axis=-1)
@@ -318,15 +318,20 @@ class InkSeq2Seq(BaseModel):
       decoder_state.append(decoder_hidden[1:])
     
     stroke_logits = self.decoder_out_stroke(decoder_hidden[0])
-    pen_logits = self.decoder_out_pen(decoder_hidden[0])
     
-    # Calculate pen-up probability from the logits.
-    pen_prob = tf.nn.sigmoid(pen_logits)
-    pen_binary = tf.compat.v1.where(
-        tf.greater(pen_prob, tf.fill(tf.shape(input=pen_prob), self.pen_threshold)),
-        tf.fill(tf.shape(input=pen_prob), 1.0), tf.fill(tf.shape(input=pen_prob), 0.0))
-    stroke_sample = self.decoder_out_stroke.draw_sample(
-        stroke_logits, greedy=True)
+    if self.decoder_out_pen is not None:
+      pen_logits = self.decoder_out_pen(decoder_hidden[0])
+      # Calculate pen-up probability from the logits.
+      pen_prob = tf.nn.sigmoid(pen_logits)
+      pen_binary = tf.compat.v1.where(
+          tf.greater(pen_prob, tf.fill(tf.shape(input=pen_prob), self.pen_threshold)),
+          tf.fill(tf.shape(input=pen_prob), 1.0), tf.fill(tf.shape(input=pen_prob), 0.0))
+    else:
+      pen_logits = tf.ones_like(stroke_logits["mu"][:, :, 0:1])
+      pen_prob = tf.random.uniform(tf.shape(pen_logits))
+      pen_binary = tf.cast(tf.greater(pen_prob, 0.5), dtype=tf.float32)
+    
+    stroke_sample = self.decoder_out_stroke.draw_sample(stroke_logits, greedy=True)
     
     return dict(
         stroke=stroke_sample,

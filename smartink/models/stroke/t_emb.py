@@ -251,8 +251,8 @@ class TEmbedding(BaseModel):
           tf.fill(tf.shape(input=pen_prob), 1.0), tf.fill(tf.shape(input=pen_prob), 0.0))
     else:
       pen_logits = tf.ones_like(stroke_logits["mu"][:, 0:1])
-      pen_binary = pen_logits
-      pen_prob = pen_logits
+      pen_prob = tf.random.uniform(tf.shape(pen_logits))
+      pen_binary = tf.cast(tf.greater(pen_prob, 0.5), dtype=tf.float32)
 
     stroke_sample = self.decoder_out_stroke.draw_sample(
         stroke_logits, greedy=True)

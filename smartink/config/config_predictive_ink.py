@@ -77,14 +77,12 @@ def define_flags():
                       "type of rnn cell instance: " + C.GRU + " or " + C.LSTM)
   flags.DEFINE_bool("bidirectional_encoder", False,
                     "whether to use bidirectional rnn as encoder or not.")
-  flags.DEFINE_bool("encoder_cudnn", False,
-                    "whether to use cudnn optimized cells or not.")
   flags.DEFINE_float("encoder_rdropout", 0.0, "Recurrent ropout rate for the "
                                               "encoder cell.")
   # Encoder Transformer
-  flags.DEFINE_integer("transformer_dmodel", 128, "representation size.")
-  flags.DEFINE_integer("transformer_layers", 8, "number of transformer layers.")
-  flags.DEFINE_integer("transformer_heads", 8, "number of attention head.")
+  flags.DEFINE_integer("transformer_dmodel", 64, "representation size.")
+  flags.DEFINE_integer("transformer_layers", 6, "number of transformer layers.")
+  flags.DEFINE_integer("transformer_heads", 4, "number of attention head.")
   flags.DEFINE_integer("transformer_hidden_units", 256,
                        "size of point_wise_feed_forward_network.")
   flags.DEFINE_float("transformer_dropout", 0, "dropout rate.")
@@ -130,12 +128,12 @@ def define_flags():
   flags.DEFINE_string("predictive_cell_type", C.LSTM,
                       "type of rnn cell instance: " + C.GRU + " or " + C.LSTM)
   # Predictive: Transformer models.
-  flags.DEFINE_integer("p_transformer_layers", 8, "number of transformer layers.")
-  flags.DEFINE_integer("p_transformer_heads", 8, "number of attention head.")
-  flags.DEFINE_integer("p_transformer_dmodel", 128, "transformer representation size.")
+  flags.DEFINE_integer("p_transformer_layers", 6, "number of transformer layers.")
+  flags.DEFINE_integer("p_transformer_heads", 4, "number of attention head.")
+  flags.DEFINE_integer("p_transformer_dmodel", 64, "transformer representation size.")
   flags.DEFINE_integer("p_transformer_hidden_units", 256,
                        "size of point_wise_feed_forward_network.")
-  flags.DEFINE_float("p_transformer_dropout", 0.1, "dropout rate.")
+  flags.DEFINE_float("p_transformer_dropout", 0, "dropout rate.")
   flags.DEFINE_bool("p_transformer_pos_encoding", False, "Positional encoding.")
   flags.DEFINE_bool("p_transformer_scale", False,
                     "Scaling embeddings in transformer.")
@@ -225,7 +223,6 @@ def get_config(FLAGS, experiment_id=None):
         cell_units=FLAGS.encoder_rnn_units,
         cell_layers=FLAGS.encoder_rnn_layers,
         cell_type=FLAGS.encoder_cell_type,
-        use_cudnn=FLAGS.encoder_cudnn,
         bidirectional_encoder=FLAGS.bidirectional_encoder,
         rec_dropout_rate = FLAGS.encoder_rdropout)
   elif FLAGS.encoder_model == "transformer":
@@ -253,7 +250,6 @@ def get_config(FLAGS, experiment_id=None):
         cell_units=FLAGS.encoder_rnn_units,  # Using the same hyper-param with the encoder.
         cell_layers=FLAGS.encoder_rnn_layers,
         cell_type=FLAGS.encoder_cell_type,
-        use_cudnn=FLAGS.encoder_cudnn,
         dropout_rate=FLAGS.decoder_dropout,
         dynamic_h0=FLAGS.decoder_dynamic_h0,
         repeat_vae_sample=FLAGS.repeat_vae_sample,
@@ -290,7 +286,6 @@ def get_config(FLAGS, experiment_id=None):
         stop_predictive_grad=FLAGS.stop_predictive_grad,
         num_predictive_inputs=FLAGS.num_pred_inputs,
         pred_input_type=FLAGS.pred_input_type,
-        use_cudnn=True,
     )
   elif FLAGS.predictive_model == "transformer":
     config.predictive_model = AttrDict(
@@ -329,7 +324,7 @@ def get_config(FLAGS, experiment_id=None):
   elif FLAGS.position_model is None:
     config.position_model = None
   else:
-    err_unknown_type(FLAGS.predictive_model)
+    err_unknown_type(FLAGS.position_model)
 
   # Loss
   config.loss = AttrDict()
