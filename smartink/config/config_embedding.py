@@ -81,7 +81,7 @@ def define_flags():
   flags.DEFINE_integer("transformer_dmodel", 64, "representation size.")
   flags.DEFINE_integer("transformer_layers", 6, "number of transformer layers.")
   flags.DEFINE_integer("transformer_heads", 4, "number of attention head.")
-  flags.DEFINE_integer("transformer_hidden_units", 128,
+  flags.DEFINE_integer("transformer_hidden_units", 256,
                        "size of point_wise_feed_forward_network.")
   flags.DEFINE_float("transformer_dropout", 0, "dropout rate.")
   flags.DEFINE_bool("transformer_pos_encoding", False, "Positional encoding.")
@@ -96,8 +96,8 @@ def define_flags():
   flags.DEFINE_float("kld_increment", 0.99995,
                      "VAE KLD loss weight increment per step.")
   # t-decoder
-  flags.DEFINE_integer("decoder_layers", 3, "number of dense layers in decoder.")
-  flags.DEFINE_list("decoder_hidden_units", "512,256,128",
+  flags.DEFINE_integer("decoder_layers", 4, "number of dense layers in decoder.")
+  flags.DEFINE_list("decoder_hidden_units", "512,512,512,512",
                     "list of hidden units in decoder.")
   flags.DEFINE_string("decoder_activation", C.RELU, "activation function.")
   flags.DEFINE_float("decoder_dropout", 0.0, "Dropout rate after every layer.")

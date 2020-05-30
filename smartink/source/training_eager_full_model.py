@@ -36,15 +36,21 @@ class TrainingEngine(object):
     self.log_frequency = config.experiment.log_frequency
 
     # Create Tensorflow Routines.
-    self.learning_rate = LearningRateFactory.get(config.experiment.learning_rate)
-    self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate)
+    self.learning_rate_stroke_ae = LearningRateFactory.get(config.experiment.learning_rate)
+    self.optimizer_stroke_ae = tf.keras.optimizers.Adam(learning_rate=self.learning_rate_stroke_ae)
+    self.learning_rate_emb_pred = LearningRateFactory.get(config.experiment.learning_rate)
+    self.optimizer_emb_pred = tf.keras.optimizers.Adam(learning_rate=self.learning_rate_emb_pred)
+    self.learning_rate_pos_pred = LearningRateFactory.get(config.experiment.learning_rate)
+    self.optimizer_pos_pred = tf.keras.optimizers.Adam(learning_rate=self.learning_rate_pos_pred)
     self.step = tf.Variable(0, name="global_step")
     self.epoch = tf.Variable(0, name="global_epoch")
     
     # self.optimizer.iterations
 
     self.checkpoint = tf.train.Checkpoint(
-        optimizer=self.optimizer,
+        optimizer=self.optimizer_stroke_ae,
+        optimizer_emb=self.optimizer_emb_pred,
+        optimizer_pos=self.optimizer_pos_pred,
         model=self.model,
         global_step=self.step)
     
@@ -79,19 +85,35 @@ class TrainingEngine(object):
   def train_step_static(self, batch_inputs, batch_targets):
     with tf.GradientTape() as tape:
       predictions = self.model(inputs=batch_inputs, training=True)
-      loss_dict = self.model.loss(predictions, batch_targets)
-    grads = tape.gradient(loss_dict["loss"], self.model.trainable_variables)
-    grads_params = self.grad_clip(self.model.trainable_variables, grads)
-    self.optimizer.apply_gradients(grads_params)
+      loss_dict = self.model.loss(predictions, batch_targets, training=True)
+      
+    grads = tape.gradient(loss_dict["loss"], {"stroke_ae":self.model.embedding_model.trainable_variables, "emb_pred":self.model.predictive_model.trainable_variables, "pos_pred":self.model.position_model.trainable_variables})
+    
+    grads_params = self.grad_clip(self.model.embedding_model.trainable_variables, grads["stroke_ae"])
+    self.optimizer_stroke_ae.apply_gradients(grads_params)
+
+    grads_params_pred = self.grad_clip(self.model.predictive_model.trainable_variables, grads["emb_pred"])
+    self.optimizer_emb_pred.apply_gradients(grads_params_pred)
+    
+    grads_params_pos = self.grad_clip(self.model.position_model.trainable_variables, grads["pos_pred"])
+    self.optimizer_pos_pred.apply_gradients(grads_params_pos)
     return loss_dict
 
   def train_step_eager(self, batch_inputs, batch_targets):
     with tf.GradientTape() as tape:
       predictions = self.model(inputs=batch_inputs, training=True)
       loss_dict = self.model.loss(predictions, batch_targets, training=True)
-    grads = tape.gradient(loss_dict["loss"], self.model.trainable_variables)
-    grads_params = self.grad_clip(self.model.trainable_variables, grads)
-    self.optimizer.apply_gradients(grads_params)
+      
+    grads = tape.gradient(loss_dict["loss"], {"stroke_ae":self.model.embedding_model.trainable_variables, "emb_pred":self.model.predictive_model.trainable_variables, "pos_pred":self.model.position_model.trainable_variables})
+    
+    grads_params = self.grad_clip(self.model.embedding_model.trainable_variables, grads["stroke_ae"])
+    self.optimizer_stroke_ae.apply_gradients(grads_params)
+
+    grads_params_pred = self.grad_clip(self.model.predictive_model.trainable_variables, grads["emb_pred"])
+    self.optimizer_emb_pred.apply_gradients(grads_params_pred)
+    
+    grads_params_pos = self.grad_clip(self.model.position_model.trainable_variables, grads["pos_pred"])
+    self.optimizer_pos_pred.apply_gradients(grads_params_pos)
     return loss_dict
   
   def grad_clip(self, parameters, gradients):
@@ -111,6 +133,10 @@ class TrainingEngine(object):
     else:
       grads_params = zip(gradients, parameters)
     return grads_params
+  
+  @classmethod
+  def count_params(cls, parameters):
+    return np.array([np.prod(w.shape) for w in parameters]).sum()
 
   def run(self):
     """Starts training loop."""
@@ -128,8 +154,12 @@ class TrainingEngine(object):
     # tf.keras restores weights only after the first call.
     batch_inputs, batch_targets = self.train_data.get_next()
     _ = self.model(inputs=batch_inputs, training=True)
+
+    print("# of Total Parameters: " + str(self.model.count_params()))
+    print("# of Stroke Auto-encoder Parameters: " + str(self.count_params(self.model.embedding_model.trainable_variables)))
+    print("# of Embedding Prediction Parameters: " + str(self.count_params(self.model.predictive_model.trainable_variables)))
+    print("# of Position Prediction Parameters: " + str(self.count_params(self.model.position_model.trainable_variables)))
     
-    print("# of parameters: " + str(self.model.count_params()))
     if self.glogger:
       self.glogger.set_static_cells({"parameters": self.model.count_params()})
 
@@ -139,7 +169,7 @@ class TrainingEngine(object):
     improvement_ratio = 0.001
     best_valid_loss = np.inf
     num_steps_wo_improvement = 0
-    early_stopping_tolerance = 40
+    early_stopping_tolerance = 20
 
     # Run Training Loop.
     stop_signal = False

@@ -9,7 +9,7 @@ import tensorflow as tf
 from absl import app
 
 from common.constants import Constants as C
-from smartink.source.training_eager import TrainingEngine
+from smartink.source.training_eager_full_model import TrainingEngine
 from smartink.config.config_predictive_ink import define_flags
 from smartink.config.config_predictive_ink import get_config
 from smartink.config.config_predictive_ink import build_predictive_model

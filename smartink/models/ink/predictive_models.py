@@ -224,13 +224,13 @@ class PredictiveInkModel(BaseModel):
     else:
       err_unknown_type(self.input_type)
     
-    if "sigma" in diagram_embedding:
-      pred_targets = dict()
-      pred_targets["mu"] = tf.stop_gradient(tf.gather_nd(diagram_embedding["mu"], gather_target_idx), name="embedding_mu_target_stop")
-      pred_targets["sigma"] = tf.stop_gradient(tf.gather_nd(diagram_embedding["sigma"], gather_target_idx), name="embedding_sigma_target_stop")
-    else:
-      pred_targets = tf.gather_nd(embedding_sample, gather_target_idx)
-      pred_targets = tf.stop_gradient(pred_targets, name="embedding_target_stop")
+    # if "sigma" in diagram_embedding:
+    #   pred_targets = dict()
+    #   pred_targets["mu"] = tf.stop_gradient(tf.gather_nd(diagram_embedding["mu"], gather_target_idx), name="embedding_mu_target_stop")
+    #   pred_targets["sigma"] = tf.stop_gradient(tf.gather_nd(diagram_embedding["sigma"], gather_target_idx), name="embedding_sigma_target_stop")
+    # else:
+    pred_targets = tf.gather_nd(embedding_sample, gather_target_idx)
+    pred_targets = tf.stop_gradient(pred_targets, name="embedding_target_stop")
     
     if self.stop_predictive_grad:
       # Disable gradient flow from the predictive/position models to the

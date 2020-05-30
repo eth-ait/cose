@@ -53,7 +53,7 @@ class InkSeq2Seq(BaseModel):
     super(InkSeq2Seq, self).__init__(
         config_loss=config_loss, run_mode=run_mode, **kwargs)
     
-    self.pen_threshold = 0.3
+    self.pen_threshold = 0.5
     self.config_encoder = config_encoder
     self.config_embedding = config_embedding
     self.config_decoder = config_decoder
@@ -283,7 +283,7 @@ class InkSeq2Seq(BaseModel):
       output_len = tf.shape(input=decoder_inputs)[1]
     
     # Prepare decoder input.
-    if not self.use_vae or self.repeat_vae_sample:
+    if not self.use_vae or self.repeat_vae_sample or not isinstance(embedding, dict):
       # Use the same latent sample in all decoder steps.
       embedding_seq = tf.tile(embedding_sample, (1, output_len, 1))
     else:
@@ -348,11 +348,12 @@ class InkSeq2Seq(BaseModel):
   
     max_steps = tf.reduce_max(input_tensor=seq_len)
     
-    if self.embedding_only:
+    if self.embedding_only or decoder_input is not None:
       decoded_seq = self.call_decode(embedding,
+                                     decoder_inputs=decoder_input,
                                      output_len=max_steps,
                                      training=False)
-      decoded_seq["seq_len"] = seq_len
+      decoded_seq["seq_len"] = self.estimate_seq_len(decoded_seq, seq_len)
       return decoded_seq
     
     if isinstance(embedding, dict):
@@ -428,9 +429,19 @@ class InkSeq2Seq(BaseModel):
     out_dict["pen_logits"] = tf.concat(pen_logits, axis=1)
     out_dict["pen_prob"] = tf.concat(pen_prob, axis=1)
     out_dict["pen"] = tf.concat(pen, axis=1)
-    out_dict["seq_len"] = seq_len
+    # out_dict["seq_len"] = seq_len
+    out_dict["seq_len"] = self.estimate_seq_len(out_dict, seq_len)
+    
     return out_dict
-  
+
+  def estimate_seq_len(self, sample_dict, filler=None):
+    # Detect when the pen-up event occurs.
+    seq_len = np.argmax(sample_dict["pen"][:, :, 0].numpy() == 1, axis=1)
+    # If pen-up doesn't occur, set a proxy seq_len if passed.
+    if filler is not None:
+      seq_len = np.where(seq_len == 0, filler, seq_len)
+    return seq_len
+
   def latent_walk(self, latent_start, latent_end, steps, output_len):
     interp_data = np.vstack([
         self.get_numpy_value(latent_start[0]),
@@ -471,10 +482,10 @@ class InkSeq2Seq(BaseModel):
     latent = "L{}".format(config.embedding.latent_units)
     if config.embedding.use_vae:
       latent += "_vae"
-      if isinstance(config.loss.embedding_kld.weight, float):
-        latent += "_w" + str(config.loss.embedding_kld.weight)
+      if isinstance(config_loss.embedding_kld.weight, float):
+        latent += "_w" + str(config_loss.embedding_kld.weight)
       else:
-        latent += "_aw" + str(config.loss.embedding_kld.weight["values"][1])
+        latent += "_aw" + str(config_loss.embedding_kld.weight["values"][1])
   
     if config.encoder.name == "rnn":
       encoder = "{}_{}x{}".format(config.encoder.cell_type,

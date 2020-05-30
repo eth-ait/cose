@@ -235,8 +235,8 @@ class TEmbedding(BaseModel):
     embedding = tf.reshape(tiled, [-1, self.n_latent_units])
     
     if self.t_frequency_channels > 0:
-      decoder_inputs = self.frequency_encoding(decoder_inputs, self.t_frequency_channels)
-      # decoder_inputs = self.frequency_encoding_emb(decoder_inputs, embedding, self.t_frequency_channels)
+      # decoder_inputs = self.frequency_encoding(decoder_inputs, self.t_frequency_channels)
+      decoder_inputs = self.frequency_encoding_emb(decoder_inputs, embedding, self.t_frequency_channels)
 
     decoder_inp = tf.concat([decoder_inputs, embedding], axis=-1)
     # Running decoder.
@@ -474,10 +474,10 @@ class TEmbedding(BaseModel):
     latent = "L{}".format(config.embedding.latent_units)
     if config.embedding.use_vae:
       latent += "_vae"
-      if isinstance(config.loss.embedding_kld.weight, float):
-        latent += "_w" + str(config.loss.embedding_kld.weight)
+      if isinstance(config_loss.embedding_kld.weight, float):
+        latent += "_w" + str(config_loss.embedding_kld.weight)
       else:
-        latent += "_aw" + str(config.loss.embedding_kld.weight["values"][1])
+        latent += "_aw" + str(config_loss.embedding_kld.weight["values"][1])
 
     if config.encoder.name == "rnn":
       encoder = "{}_{}x{}".format(config.encoder.cell_type,

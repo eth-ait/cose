@@ -100,9 +100,8 @@ def define_flags():
   ### Decoder model
   flags.DEFINE_string("decoder_model", "t_emb", "stroke decoder: t_emb or rnn.")
   # t-decoder
-  flags.DEFINE_integer("decoder_layers", 3, "number of dense layers in decoder.")
-  flags.DEFINE_list("decoder_hidden_units", "512,256,128",
-                    "list of hidden units in decoder.")
+  flags.DEFINE_integer("decoder_layers", 4, "number of dense layers in decoder.")
+  flags.DEFINE_list("decoder_hidden_units", "512,512,512,512", "list of hidden units in decoder.")
   flags.DEFINE_string("decoder_activation", C.RELU, "activation function.")
   flags.DEFINE_float("decoder_dropout", 0.0, "Dropout rate after every layer.")
   flags.DEFINE_integer("t_frequency_channels", 0,
@@ -358,13 +357,13 @@ def get_config(FLAGS, experiment_id=None):
     ink_loss.embedding_kld = LossConfig(
         loss_type=C.KLD_STANDARD,
         target_key=None,
-        out_key="stroke",
+        out_key="embedding",
         reduce_type=C.R_MEAN_STEP)
     
-    # ink_loss.embedding_kld.weight = FLAGS.kld_weight
-    ink_loss.embedding_kld.weight = dict(
-        type="linear_decay",
-        values=[FLAGS.kld_start, FLAGS.kld_weight, FLAGS.kld_increment])
+    ink_loss.embedding_kld.weight = FLAGS.kld_weight
+    # ink_loss.embedding_kld.weight = dict(
+    #     type="linear_decay",
+    #     values=[FLAGS.kld_start, FLAGS.kld_weight, FLAGS.kld_increment])
     
   if FLAGS.reg_emb_weight > 0:
     ink_loss.embedding_l2 = LossConfig(
