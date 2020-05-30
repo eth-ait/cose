@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 from scipy.spatial import KDTree
+from sklearn.neighbors import NearestNeighbors
 
 
 def distance_matrix_batch(array1, array2):
@@ -87,3 +88,18 @@ def chamfer_distance_np(arrays):
   av_dist2 = np.sum(distances2)
   return av_dist1 + av_dist2
 
+
+def chamfer_distance_np_var_len(arrays):
+  """Chamfer distance in numpy supporting arrays with different lengths.
+  
+  Args:
+    arrays:
+  Returns:
+  """
+  x, y = arrays
+  x_nn = NearestNeighbors(n_neighbors=1, leaf_size=1, algorithm='kd_tree', metric='l2').fit(x)
+  min_y_to_x = x_nn.kneighbors(y)[0]
+  y_nn = NearestNeighbors(n_neighbors=1, leaf_size=1, algorithm='kd_tree', metric='l2').fit(y)
+  min_x_to_y = y_nn.kneighbors(x)[0]
+  chamfer_dist = np.mean(min_y_to_x) + np.mean(min_x_to_y)
+  return chamfer_dist

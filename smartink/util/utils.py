@@ -112,7 +112,7 @@ class AggregateAvg(object):
 
   def summary_and_reset(self):
     summary_dict = dict()
-    steps = self.steps
+    steps = max(self.steps, 1)
     for key, value in self.container.items():
       if isinstance(value, list):
         summary_dict[key] = np.array(value).mean()

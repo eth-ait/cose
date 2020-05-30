@@ -23,8 +23,13 @@ from smartink.source.eval_engine import EvalEngine
 from smartink.util.utils import NotPredictiveModelError
 from smartink.util.utils import ModelNotFoundError
 
-#
-# tf.compat.v1.enable_eager_execution()
+
+gpu = tf.config.experimental.list_physical_devices('GPU')[0]
+if gpu:
+  try:
+    tf.config.experimental.set_memory_growth(gpu, True)
+  except RuntimeError as e:
+    print(e)
 
 
 def main(argv):
@@ -34,6 +39,7 @@ def main(argv):
   parser.add_argument('--model_ids', required=True, help='Experiment ID (experiment timestamp).')
   parser.add_argument('--quantitative', required=False, action="store_true", help='Quantitative analysis.')
   parser.add_argument('--qualitative', required=False, action="store_true",help='Qualitative analysis.')
+  parser.add_argument('--embedding_analysis', required=False, action="store_true",help='Quantitative analysis of the embeddings.')
 
   args = parser.parse_args()
   if ',' in args.model_ids:
@@ -98,6 +104,12 @@ def main(argv):
         if args.qualitative:
           dataset.make_one_shot_iterator()  # Reset iterator.
         eval_engine.quantitative_eval(np.inf)
+      
+      if args.embedding_analysis:
+        if args.qualitative or args.quantitative:
+          dataset.make_one_shot_iterator()  # Reset iterator.
+        eval_engine.embedding_eval(glog_entry=True)
+        eval_engine.embedding_eval(glog_entry=True, metric="cosine")
       
     except Exception as e:
       print("Something went wrong when evaluating model {}".format(model_id))

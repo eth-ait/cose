@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 
 from common.constants import Constants as C
-from smartink.loss.chamfer import chamfer_distance_tf
+from smartink.loss.chamfer import chamfer_distance_np_var_len
 from smartink.util.utils import dict_tf_to_numpy
 from smartink.util.ink import padded_to_stroke_list
 from visualization.visualization import InkVisualizer
@@ -64,7 +64,7 @@ class MetricEngine(object):
     
   @classmethod
   def chamfer(cls, targets, predictions):
-    return [chamfer_distance_tf((gt, pred)).numpy() for gt, pred in zip(targets, predictions)]
+    return [chamfer_distance_np_var_len((gt, pred)) for gt, pred in zip(targets, predictions)]
   
   def chamfer_distance(self, targets, predictions, return_all=True):
     """Calculates Chamfer distance between targets and predictions.
@@ -83,13 +83,13 @@ class MetricEngine(object):
       predictions = [p_ - p_[0, :] for p_ in predictions]
 
     if self.ignore_pen and self.ignore_pen_step:
-      cd = [chamfer_distance_tf((gt[:-1, 0:2], pred[:-1, 0:2])).numpy() for gt, pred in zip(targets, predictions)]
+      cd = [chamfer_distance_np_var_len((gt[:-1, 0:2], pred[:-1, 0:2])) for gt, pred in zip(targets, predictions)]
     elif self.ignore_pen:
-      cd = [chamfer_distance_tf((gt[:, 0:2], pred[:, 0:2])).numpy() for gt, pred in zip(targets, predictions)]
+      cd = [chamfer_distance_np_var_len((gt[:, 0:2], pred[:, 0:2])) for gt, pred in zip(targets, predictions)]
     elif self.ignore_pen_step:
-      cd = [chamfer_distance_tf((gt[:-1], pred[:-1])).numpy() for gt, pred in zip(targets, predictions)]
+      cd = [chamfer_distance_np_var_len((gt[:-1], pred[:-1])) for gt, pred in zip(targets, predictions)]
     else:
-      cd = [chamfer_distance_tf((gt, pred)).numpy() for gt, pred in zip(targets, predictions)]
+      cd = [chamfer_distance_np_var_len((gt, pred)) for gt, pred in zip(targets, predictions)]
       
     if return_all:
       return cd

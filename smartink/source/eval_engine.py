@@ -9,6 +9,7 @@ import time
 import os
 import numpy as np
 import tensorflow as tf
+import tensorflow_probability as tfp
 
 from common.constants import Constants as C
 from common.logger import GoogleSheetLogger
@@ -19,12 +20,14 @@ from smartink.util.ink import padded_to_stroke_list
 from visualization.visualization import InkVisualizer
 
 from smartink.loss.nll import log_likelihood
-import matplotlib.pyplot as plt
 from visualization.visualization import render_strokes
 from visualization.visualization import get_min_max
+
+import matplotlib.pyplot as plt
 import matplotlib.pylab as pl
 from matplotlib.colors import ListedColormap
-from scipy.stats import multivariate_normal
+from sklearn.cluster import SpectralClustering, KMeans
+from sklearn import metrics
 
 
 np.set_printoptions(precision=4, suppress=True)
@@ -57,7 +60,13 @@ class EvalEngine(object):
     self.predictive_model = predictive_model
     self.model = self.embedding_model if predictive_model is None else predictive_model
     self.gt_len_decoding = True  # Whether to use GT sequence length.
-    self.save_video = True  # Whether to use GT sequence length.
+    self.decoded_length = 50  # 40 mean sequence-length
+    self.save_video = False
+    
+    self.embedding_analysis = True
+    self.reconstruction_analysis = True
+    self.prediction_analysis = True
+    self.loss_plots = False
     
     self.metrics = MetricEngine(eval_dataset.np_undo_preprocessing,
                                 metrics=[C.METRIC_CHAMFER],
@@ -94,7 +103,136 @@ class EvalEngine(object):
   @tf.function
   def tf_decoding_fn(self, fn, embeddings, seq_len):
     return fn(embeddings, seq_len)
+  
+  def embedding_eval(self, embedding_samples=None, glog_entry=False, metric="sqeuclidean"):
+    """Conducts a number of analysis on the embedding samples.
+    
+    Args:
+      embedding_samples: numpy matrix of shape (n_samples, latent_units)
+      glog_entry:
+      metric:
+    Returns:
+    """
+    eval_results = dict()
 
+    if embedding_samples is None:
+      if os.path.exists(os.path.join(self.log_dir, "test_gt_embeddings.npy")):
+        print("Loading embedding samples from " + os.path.join(self.log_dir, "test_gt_embeddings.npy"))
+        embedding_samples = np.load(os.path.join(self.log_dir, "test_gt_embeddings.npy"))
+      else:
+        print("Calculating embeddings from scratch...")
+        try:
+          embedding_container = list()
+          step = 0
+          num_eval_samples = np.inf
+          while True:
+            input_batch, target_batch = self.dataset.get_next()
+            
+            if step > num_eval_samples:
+              break
+            step += 1
+            
+            if step % 100 == 0:
+              print("{} samples evaluated...".format(step))
+            
+            # tf.keras restores weights only after the first call :(
+            if not self.model_restored:
+              _ = self.model(inputs=input_batch, training=False)
+              self.model_restored = True
+    
+            # Get stroke embeddings.
+            predictions = self.embedding_model(inputs=input_batch, training=False)
+            embedding_container.extend(predictions["embedding_sample"].numpy())
+            
+        except tf.errors.OutOfRangeError:
+          print("Model evaluated on {} samples.".format(step))
+          embedding_samples = np.vstack(embedding_container)
+          np.save(os.path.join(self.log_dir, "test_gt_embeddings"), embedding_samples)
+
+    # metric = 'cosine'  # 'sqeuclidean'
+    n_clusters = [10, 15, 20, 25]  # Spectral clustering sometimes never terminates with 5.
+    n_batches = 10
+    n_samples = embedding_samples.shape[0]
+    glog_spectral_name_ = "SC_{}"
+    glog_kmeans_name_ = "KM_{}"
+    
+    # Calculate silhouette coefficient.
+    # Clustering takes a lot of time. Instead of running on the entire test
+    # split, we run in a cross-validation fashion. Randomly split the test set
+    # into 10 splits and report mean and std as well.
+    n_samples = (n_samples // n_batches)*n_batches
+    emb_copy = embedding_samples.copy()
+    np.random.seed(1)
+    np.random.shuffle(emb_copy)
+    emb_copy = emb_copy[:n_samples]
+    
+    # Normalize embedding vectors so that Euclidean metric in KMeans and
+    # Spectral clustering behave like scaled cosine distance.
+    # Derivation: https://stats.stackexchange.com/a/299016/41958
+    if metric == "cosine":
+      norms = np.linalg.norm(emb_copy, axis=1)
+      emb_copy = emb_copy / norms[:, np.newaxis]
+      glog_spectral_name_ = "SC_cos_{}"
+      glog_kmeans_name_ = "KM_cos_{}"
+    
+    cluster_splits = np.split(emb_copy, n_batches)
+    
+    print("Calculating Silhouette Coefficient Metric with KMeans on {} samples...".format(n_samples))
+    n_clusters = [5, 10, 15, 20, 25]
+    for n_cluster in n_clusters:
+      try:
+        kmeans = KMeans(n_clusters=n_cluster, random_state=0).fit(emb_copy)
+        si_kmeans = metrics.silhouette_score(emb_copy, kmeans.labels_, metric=metric)
+        eval_results[glog_kmeans_name_.format(n_cluster)] = si_kmeans
+        print(glog_kmeans_name_.format(n_cluster) + ": " + str(si_kmeans))
+      except:
+        pass
+    
+    print("Calculating Silhouette Coefficient Metric with Spectral Clustering on {} samples...".format(n_samples))
+    for n_cluster in n_clusters:
+      vals_spectral = list()
+      for i in range(n_batches):
+        try:
+          spect = SpectralClustering(n_clusters=n_cluster, assign_labels="discretize", n_jobs=8).fit(cluster_splits[i])
+          si_spect = metrics.silhouette_score(cluster_splits[i], spect.labels_, metric=metric)
+          vals_spectral.append(si_spect)
+          print("Batch {}: {}".format(i, si_spect))
+        except:
+          pass
+
+      vals_spectral = np.array(vals_spectral)
+      eval_results[glog_spectral_name_.format(n_cluster)] = vals_spectral.mean()
+      eval_results[glog_spectral_name_.format(n_cluster) + "_std"] = vals_spectral.std()
+      print(glog_spectral_name_.format(n_cluster) + ": " + str(vals_spectral.mean()))
+      print(glog_spectral_name_.format(n_cluster) + "_std: " + str(vals_spectral.std()))
+
+    # Calculate entropy and KLD or the fitted latent distribution.
+    def entropy_hist_dd(x):
+      counts = np.histogramdd(x)[0]
+      dist = counts/np.sum(counts)
+      logs = np.log2(np.where(dist > 0, dist, 1))
+      return -np.sum(dist*logs)
+
+    try:
+      eval_results["entropy_hist_dd"] = entropy_hist_dd(embedding_samples)
+    except:
+      pass
+
+    try:
+      agg_mean = np.mean(embedding_samples, axis=0)
+      agg_cov = np.cov(embedding_samples, rowvar=0)
+      agg_q_mvn = tfp.distributions.MultivariateNormalFullCovariance(tf.convert_to_tensor(agg_mean, dtype=tf.float32), tf.convert_to_tensor(agg_cov, dtype=tf.float32))
+      prior = tfp.distributions.MultivariateNormalDiag(tf.zeros([embedding_samples.shape[1]]), tf.ones([embedding_samples.shape[1]]))
+      eval_results["entropy_mvn"] = agg_q_mvn.entropy().numpy()
+      eval_results["kld_q_p"] = agg_q_mvn.kl_divergence(prior).numpy()
+      eval_results["kld_p_q"] = prior.kl_divergence(agg_q_mvn).numpy()
+    except:
+      pass
+
+    if glog_entry and self.glogger:
+      self.glogger.update_or_append_row(eval_results)
+    return eval_results
+  
   def quantitative_eval(self, num_eval_samples):
     """Evaluates model predictions and loss in eager mode.
 
@@ -105,22 +243,24 @@ class EvalEngine(object):
     print("======================================")
     print("Running evaluation for {} samples...".format(num_eval_samples))
     print("======================================")
+    
     # Storing evaluation results for visualization.
     eval_loss_summary = AggregateAvg()
     losses = dict()
-
+    
     start_time = time.perf_counter()
     step = 0
     # Keep track of some statistics
     sample_lengths = list()
     sample_losses = list()
     sample_embeddings = list()
+    selected_predicted_emb = list()
     selected_emb_comps = list()
     try:
       while True:
         input_batch, target_batch = self.dataset.get_next()
         
-        if step == num_eval_samples:
+        if step > num_eval_samples:
           break
         step += 1
         
@@ -138,35 +278,36 @@ class EvalEngine(object):
         target_batch = dict_tf_to_numpy(target_batch)
 
         ### Decode with original stroke length.
-        seq_len = target_batch["seq_len"]
-        recon_batch = self.embedding_model.decode_sequence(embeddings,
-                                                           seq_len=seq_len)
-        
-        # Before calculating metrics, convert to 2D positions that's also used
-        # for visualization.
-        gt_strokes = padded_to_stroke_list(target_batch,
-                                           self.dataset.np_undo_preprocessing)
-        recon_batch[C.INP_START_COORD] = target_batch["start_coord"]
-        recon_batch[C.INP_SEQ_LEN] = target_batch["seq_len"]
-        recon_strokes = padded_to_stroke_list(dict_tf_to_numpy(recon_batch),
-                                              self.dataset.np_undo_preprocessing)
-        
-        ### (1) Euclidean and Chamfer distances on the reconstructed strokes.
-        res_stroke = self.metrics.eval(gt_strokes, recon_strokes, return_all=True)
-        losses["rc_chamfer_stroke"] = res_stroke[C.METRIC_CHAMFER]
-
-        ### (2) Euclidean and Chamfer distances on the reconstructed diagram.
-        gt_diagram = np.vstack(gt_strokes)
-        recon_diagram = np.vstack(recon_strokes)
-        res_diag = self.metrics.eval([gt_diagram], [recon_diagram], return_all=True)
-        losses["rc_chamfer_diagram"] = res_diag[C.METRIC_CHAMFER]
-
-        if C.METRIC_L2 in res_stroke:
-          losses["rc_l2_stroke"] = res_stroke[C.METRIC_L2]
-          losses["rc_l2_diagram"] = res_diag[C.METRIC_L2]
+        if self.reconstruction_analysis:
+          seq_len = target_batch["seq_len"]
+          recon_batch = self.embedding_model.decode_sequence(embeddings,
+                                                             seq_len=seq_len)
+          
+          # Before calculating metrics, convert to 2D positions that's also used
+          # for visualization.
+          gt_strokes = padded_to_stroke_list(target_batch,
+                                             self.dataset.np_undo_preprocessing)
+          recon_batch[C.INP_START_COORD] = target_batch["start_coord"]
+          recon_batch[C.INP_SEQ_LEN] = target_batch["seq_len"]
+          recon_strokes = padded_to_stroke_list(dict_tf_to_numpy(recon_batch),
+                                                self.dataset.np_undo_preprocessing)
+          
+          ### (1) Euclidean and Chamfer distances on the reconstructed strokes.
+          res_stroke = self.metrics.eval(gt_strokes, recon_strokes, return_all=True)
+          losses["rc_chamfer_stroke"] = res_stroke[C.METRIC_CHAMFER]
+  
+          ### (2) Euclidean and Chamfer distances on the reconstructed diagram.
+          gt_diagram = np.vstack(gt_strokes)
+          recon_diagram = np.vstack(recon_strokes)
+          res_diag = self.metrics.eval([gt_diagram], [recon_diagram], return_all=True)
+          losses["rc_chamfer_diagram"] = res_diag[C.METRIC_CHAMFER]
+  
+          if C.METRIC_L2 in res_stroke:
+            losses["rc_l2_stroke"] = res_stroke[C.METRIC_L2]
+            losses["rc_l2_diagram"] = res_diag[C.METRIC_L2]
         
         # Evaluating the prediction model.
-        if self.predictive_model is not None:
+        if self.prediction_analysis and self.predictive_model is not None:
           n_given_strokes = 2  # minimum # of given strokes.
           
           ### (3) Predicted embedding log-likelihood.
@@ -177,7 +318,7 @@ class EvalEngine(object):
           ### (4) Chamfer distance of the predicted strokes.
           # Here we consider all GMM components and report the one with the
           # lowest chamfer distance with the ground-truth stroke.
-          all_emb_decodings, all_emb_pi = self.__decode_embedding_all_components(pred_emb, target_batch["seq_len"][n_given_strokes:])
+          all_emb_decodings, all_emb_pi, all_emb_samples = self.__decode_embedding_all_components(pred_emb, target_batch["seq_len"][n_given_strokes:])
           n_components = all_emb_pi.shape[1]
           # Tile start coordinates for every component.
           all_emb_decodings[C.INP_START_COORD] = tf.tile(target_batch["start_coord"][n_given_strokes:], [n_components, 1, 1])
@@ -189,6 +330,9 @@ class EvalEngine(object):
           min_chamfer = np.min(all_comp_chamfer, axis=1)
           min_comp_id = np.argmin(all_comp_chamfer, axis=1)
           
+          best_embedding_idx = tf.stack([tf.range(tf.shape(all_emb_samples)[0]), min_comp_id], axis=-1)
+          best_embeddings = tf.gather_nd(all_emb_samples, best_embedding_idx)
+          
           # Which components are causing the lowest error.
           min_comp_id = np.tile(min_comp_id[:, np.newaxis], [1, n_components])
           sorted_comp_id = np.argsort(all_emb_pi)
@@ -197,77 +341,71 @@ class EvalEngine(object):
 
           losses["pred_chamfer_stroke"] = min_chamfer
           selected_emb_comps.extend(ordered_min_comp_id)
-        
-        eval_loss_summary.add(losses)
+          selected_predicted_emb.extend(best_embeddings.numpy())
+
         sample_embeddings.extend(embeddings.numpy())
-        sample_lengths.extend(seq_len)
-        sample_losses.extend(res_stroke[C.METRIC_CHAMFER])
+        if self.reconstruction_analysis:
+          sample_lengths.extend(seq_len)
+          sample_losses.extend(res_stroke[C.METRIC_CHAMFER])
+        if losses:
+          eval_loss_summary.add(losses)
         
     except tf.errors.OutOfRangeError:
       print("Model evaluated on {} samples.".format(step))
 
     loss_dict, eval_step = eval_loss_summary.summary_and_reset()
     
-    print("[RC] Avg stroke CF dist: ", loss_dict["rc_chamfer_stroke"])
-    print("[RC] Avg diagram CF dist: ", loss_dict["rc_chamfer_diagram"])
-
-    if "rc_l2_stroke" in loss_dict:
-      print("[RC] Avg stroke L2 dist: ", loss_dict["rc_l2_stroke"])
-      print("[RC] Avg diagram L2 dist: ", loss_dict["rc_l2_diagram"])
+    if self.reconstruction_analysis:
+      print("[RC] Avg stroke CF dist: ", loss_dict["rc_chamfer_stroke"])
+      print("[RC] Avg diagram CF dist: ", loss_dict["rc_chamfer_diagram"])
+  
+      if "rc_l2_stroke" in loss_dict:
+        print("[RC] Avg stroke L2 dist: ", loss_dict["rc_l2_stroke"])
+        print("[RC] Avg diagram L2 dist: ", loss_dict["rc_l2_diagram"])
     
     # Plot loss statistics.
-    sample_losses = np.array(sample_losses)
-    normalized_loss = sample_losses / np.array(sample_lengths)
-    plt.scatter(sample_lengths, normalized_loss, s=4)
-    plt.title("Stroke Chamfer Loss (normalized by length)")
-    plt.xlabel("Stroke Length")
-    plt.ylabel("Chamfer Loss")
-    plt.savefig(os.path.join(self.log_dir, "chamfer_loss_norm_length_plot.png"), bbox_inches='tight', dpi=200)
-    plt.close()
-
-    plt.scatter(sample_lengths, sample_losses, s=4)
-    plt.title("Stroke Chamfer Loss")
-    plt.xlabel("Stroke Length")
-    plt.ylabel("Chamfer Loss")
-    plt.savefig(os.path.join(self.log_dir, "chamfer_loss_length_plot.png"), bbox_inches='tight', dpi=200)
-    plt.close()
-    
-    _ = plt.hist(sample_losses, 50, density=True, cumulative=False, log=False)
-    plt.savefig(os.path.join(self.log_dir, "chamfer_loss_hist.png"), bbox_inches='tight', dpi=200)
-    plt.close()
+    if self.loss_plots and self.reconstruction_analysis:
+      sample_losses = np.array(sample_losses)
+      normalized_loss = sample_losses / np.array(sample_lengths)
+      plt.scatter(sample_lengths, normalized_loss, s=4)
+      plt.title("Stroke Chamfer Loss (normalized by length)")
+      plt.xlabel("Stroke Length")
+      plt.ylabel("Chamfer Loss")
+      plt.savefig(os.path.join(self.log_dir, "chamfer_loss_norm_length_plot.png"), bbox_inches='tight', dpi=200)
+      plt.close()
+  
+      plt.scatter(sample_lengths, sample_losses, s=4)
+      plt.title("Stroke Chamfer Loss")
+      plt.xlabel("Stroke Length")
+      plt.ylabel("Chamfer Loss")
+      plt.savefig(os.path.join(self.log_dir, "chamfer_loss_length_plot.png"), bbox_inches='tight', dpi=200)
+      plt.close()
+  
+      _ = plt.hist(sample_losses, 50, density=True, cumulative=False, log=False)
+      plt.savefig(os.path.join(self.log_dir, "chamfer_loss_hist.png"), bbox_inches='tight', dpi=200)
+      plt.close()
 
     if selected_emb_comps:
       left_of_first_bin = 0.5
       right_of_last_bin = n_components + 0.5
       plt.hist(selected_emb_comps, np.arange(left_of_first_bin, right_of_last_bin + 1, 1), density=True, cumulative=False, log=False)
-      
+
       # _ = plt.hist(selected_emb_comps, n_components, density=True, cumulative=False, log=False)
       plt.savefig(os.path.join(self.log_dir, "selected_emb_components.png"),
                   bbox_inches='tight', dpi=200)
       plt.close()
     
-    def entropy_hist_dd(x):
-      counts = np.histogramdd(x)[0]
-      dist = counts/np.sum(counts)
-      logs = np.log2(np.where(dist > 0, dist, 1))
-      return -np.sum(dist*logs)
-    
-    def entropy_mvn(x):
-      mean_ = np.mean(x, axis=0)
-      cov_ = np.cov(x, rowvar=0)
-      mvn = multivariate_normal(mean_, cov_)
-      return mvn.entropy()
+    if selected_predicted_emb:
+      all_pred_embeddings = np.vstack(selected_predicted_emb)
+      np.save(os.path.join(self.log_dir, "test_best_predicted_embeddings"), all_pred_embeddings)
 
     all_embeddings = np.vstack(sample_embeddings)
-    try:
-      loss_dict["entropy_hist_dd"] = entropy_hist_dd(all_embeddings)
-    except:
-      pass
-    try:
-      loss_dict["entropy_mvn"] = entropy_mvn(all_embeddings)
-    except:
-      pass
-
+    np.save(os.path.join(self.log_dir, "test_gt_embeddings"), all_embeddings)
+    
+    # if self.embedding_analysis:
+    #   emb_results = self.embedding_eval(all_embeddings)
+    #   loss_dict.update(emb_results)
+      
     elapsed_time = (time.perf_counter() - start_time)/eval_step
     print("Elapsed time per sample: {:.4f}".format(elapsed_time))
     if self.glogger:
@@ -334,13 +472,13 @@ class EvalEngine(object):
     n_components = emb_pis.shape[1]
     
     # emb_samples = tf.reshape(emb_samples, [-1, tf.shape(emb_samples)[-1]])
-    emb_samples = tf.reshape(tf.transpose(a=emb_samples, perm=[1, 0, 2]), [-1, tf.shape(input=emb_samples)[-1]])
+    emb_samples_compwise = tf.reshape(tf.transpose(a=emb_samples, perm=[1, 0, 2]), [-1, tf.shape(input=emb_samples)[-1]])
     # stroke_lens = tf_repeat0(stroke_len, n_components)
     stroke_lens = np.tile(stroke_len, [n_components])
 
-    decoded_batch = self.embedding_model.decode_sequence(emb_samples,
+    decoded_batch = self.embedding_model.decode_sequence(emb_samples_compwise,
                                                          seq_len=stroke_lens)
-    return decoded_batch, emb_pis
+    return decoded_batch, emb_pis, emb_samples
     
   
   def qualitative_eval(self, sample_ids):
@@ -382,7 +520,7 @@ class EvalEngine(object):
       # (2) Decode with original stroke length.
       seq_len = target_batch["seq_len"]
       if not self.gt_len_decoding:
-        seq_len = np.array([50]*n_strokes)
+        seq_len = np.array([self.decoded_length]*n_strokes)
       decoded_batch = self.embedding_model.decode_sequence(embeddings,
                                                            seq_len=seq_len)
       
@@ -393,7 +531,7 @@ class EvalEngine(object):
                                          self.dataset.np_undo_preprocessing)
       # Log per sample loss: chamfer distance on the reconstructed strokes.
       # Not applicable if we are not using the ground-truth sequence length.
-      if self.gt_len_decoding:
+      if self.gt_len_decoding or not self.gt_len_decoding:
         recon_strokes = padded_to_stroke_list(dict_tf_to_numpy(decoded_batch),
                                               self.dataset.np_undo_preprocessing)
         
@@ -410,7 +548,7 @@ class EvalEngine(object):
       ### Evaluate the predictive model.
       if self.predictive_model is None:
         continue
-      
+
       # Convert batch of strokes into a diagram sample.
       embeddings = self.model.batch_stroke_to_diagram(embeddings,
                                                       input_batch[C.INP_NUM_STROKE])
@@ -419,18 +557,18 @@ class EvalEngine(object):
       all_strokes = np.concatenate(gt_strokes, axis=0)
       x_min, x_max = get_min_max(all_strokes[:, 0], 0.3)
       y_min, y_max = get_min_max(all_strokes[:, 1], 0.3)
-      
+
       # (3) Predict a stroke in leave-one-out (loo) fashion (i.e., given the rest)
       # self.__predict_loo(input_batch, target_batch, embeddings, idx)
 
-      # (4) Predict the next stroke given only the strokes so far.
-      self.__predict_ordered(input_batch, target_batch, embeddings, idx, plot_x=(x_min, x_max), plot_y=(y_min, y_max))
+      # # (4) Predict the next stroke given only the strokes so far.
+      # self.__predict_ordered(input_batch, target_batch, embeddings, idx, plot_x=(x_min, x_max), plot_y=(y_min, y_max))
 
       # (5) Auto-regressive prediction with random embeddings.
       self.__predict_ar(input_batch, target_batch, embeddings, idx)
 
-      # # (6) Auto-regressive prediction with the best embedding.
-      # self.__predict_ar_best_embedding(input_batch, target_batch, embeddings, idx)
+      # (6) Auto-regressive prediction with the best embedding.
+      self.__predict_ar_best_embedding(input_batch, target_batch, embeddings, idx)
 
       # (7) Predict the next stroke given a predefined set of strokes.
       # self.__predict_random(input_batch, target_batch, embeddings, idx)
@@ -460,7 +598,7 @@ class EvalEngine(object):
 
       seq_len = target_batch["seq_len"]
       if not self.gt_len_decoding:
-        seq_len = np.array([50]*n_strokes)
+        seq_len = np.array([self.decoded_length]*n_strokes)
         
       predicted_batch = self.embedding_model.decode_sequence(emb_,
                                                              seq_len=seq_len)
@@ -485,7 +623,7 @@ class EvalEngine(object):
 
       seq_len = target_batch["seq_len"][:stroke_i + 1]
       if not self.gt_len_decoding:
-        seq_len = np.array([50]*(stroke_i + 1))
+        seq_len = np.array([self.decoded_length]*(stroke_i + 1))
       
       predicted_batch = self.embedding_model.decode_sequence(emb_,
                                                              seq_len=seq_len)
@@ -520,7 +658,7 @@ class EvalEngine(object):
 
       seq_len = target_batch["seq_len"][:stroke_i + 1]
       if not self.gt_len_decoding:
-        seq_len = np.array([50]*(stroke_i + 1))
+        seq_len = np.array([self.decoded_length]*(stroke_i + 1))
         
       predicted_batch = self.embedding_model.decode_sequence(emb_,
                                                         seq_len=seq_len)
@@ -566,7 +704,7 @@ class EvalEngine(object):
                                                  inp_pos=context_pos[:, :stroke_i],
                                                  target_pos=start_positions[:, stroke_i:stroke_i + 1])
       # Decode all modes.
-      all_emb_decodings, all_emb_pi = self.__decode_embedding_all_components(pred_emb, target_batch["seq_len"][stroke_i:stroke_i + 1])
+      all_emb_decodings, all_emb_pi, _ = self.__decode_embedding_all_components(pred_emb, target_batch["seq_len"][stroke_i:stroke_i + 1])
       n_components = all_emb_pi.shape[1]
       # Tile start coordinates for every component.
       all_emb_decodings[C.INP_START_COORD] = tf.tile(target_batch["start_coord"][stroke_i:stroke_i + 1], [n_components, 1, 1])
@@ -584,7 +722,7 @@ class EvalEngine(object):
 
       seq_len = target_batch["seq_len"][:stroke_i + 1]
       if not self.gt_len_decoding:
-        seq_len = np.array([50]*(stroke_i + 1))
+        seq_len = np.array([self.decoded_length]*(stroke_i + 1))
         
       predicted_batch = self.embedding_model.decode_sequence(emb_,
                                                         seq_len=seq_len)
@@ -620,8 +758,8 @@ class EvalEngine(object):
       inp_lens = target_batch["seq_len"][input_indices]
       target_len = target_batch["seq_len"][target_idx:target_idx + 1]
       if not self.gt_len_decoding:
-        inp_lens = np.array([50]*len(input_indices))
-        target_len = np.array([50])
+        inp_lens = np.array([self.decoded_length]*len(input_indices))
+        target_len = np.array([self.decoded_length])
         
       input_sidx = input_indices.copy()
       pred_n_strokes = len(input_sidx)
@@ -702,9 +840,9 @@ class EvalEngine(object):
       emb_ = context_embeddings[0].numpy()
 
       # seq_len = target_batch["seq_len"][:stroke_i + 1]
-      seq_len = np.array([50]*(stroke_i + 1))
+      seq_len = np.array([self.decoded_length]*(stroke_i + 1))
       if not self.gt_len_decoding:
-        seq_len = np.array([50]*(stroke_i + 1))
+        seq_len = np.array([self.decoded_length]*(stroke_i + 1))
         
       predicted_batch = self.embedding_model.decode_sequence(emb_,
                                                              seq_len=seq_len)
