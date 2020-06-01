@@ -71,6 +71,7 @@ class Constants(object):
   NLL_CENT = 'nll_cent'  # Cross-entropy.
   NLL_CENT_BINARY = 'nll_cent_binary'  # Cross-entropy for binary outputs.
   KLD_STANDARD = 'kld_p0'
+  KLD_STANDARD_NORM = 'kld_p0_norm'
   KLD = 'kld'
   MSE = 'mse'
   L1 = 'l1'
@@ -122,23 +123,32 @@ class Constants(object):
 
   DATASET_MAP = {
       "didi":
-          {
+        {
             "data_tfrecord_fname": "diagrams_20200131-?????-of-?????",
             "position"           : "didi-stats-origin_abs_pos.npy",
             "velocity"           : "didi-stats-relative_pos.npy"
-          },
-      
+            },
+    
       "didi_wo_text":
-          {
+        {
             "data_tfrecord_fname": "diagrams_wo_text_20200131-?????-of-?????",
             "position"           : "didi_wo_text-stats-origin_abs_pos.npy",
             "velocity"           : "didi_wo_text-stats-relative_pos.npy"
-          },
+            },
       
       "didi_all":
         {
             "data_tfrecord_fname": ["diagrams_20200131-?????-of-?????", "diagrams_wo_text_20200131-?????-of-?????"],
             "position"           : "didi_all-stats-origin_abs_pos.npy",
             "velocity"           : "didi_all-stats-relative_pos.npy"
-            }
+            },
+      
+      "didi_wo_text_rdp":
+        {
+            "data_tfrecord_fname": "diagrams_wo_text_20200131-?????-of-?????",
+            "position"           : "didi_wo_text-stats-origin_abs_pos.npy",
+            "velocity"           : "didi_wo_text-stats-relative_pos.npy",
+            "rdp_position": "didi_wo_text_rdp-stats-origin_abs_pos.npy",
+            "rdp_velocity": "didi_wo_text_rdp-stats-relative_pos.npy"
+            },
       }

@@ -149,8 +149,6 @@ class EvalEngine(object):
           embedding_samples = np.vstack(embedding_container)
           np.save(os.path.join(self.log_dir, "test_gt_embeddings"), embedding_samples)
 
-    # metric = 'cosine'  # 'sqeuclidean'
-    n_clusters = [10, 15, 20, 25]  # Spectral clustering sometimes never terminates with 5.
     n_batches = 10
     n_samples = embedding_samples.shape[0]
     glog_spectral_name_ = "SC_{}"
@@ -187,7 +185,8 @@ class EvalEngine(object):
         print(glog_kmeans_name_.format(n_cluster) + ": " + str(si_kmeans))
       except:
         pass
-    
+
+    n_clusters = [10, 15, 20, 25]  # Spectral clustering sometimes never terminates with 5.
     print("Calculating Silhouette Coefficient Metric with Spectral Clustering on {} samples...".format(n_samples))
     for n_cluster in n_clusters:
       vals_spectral = list()
@@ -512,6 +511,7 @@ class EvalEngine(object):
       target_batch = dict_tf_to_numpy(target_batch)
       n_strokes = target_batch["num_strokes"][0]
       self.vis_engine.vis_stroke(target_batch, save_name="{}_gt".format(idx))
+      # self.vis_engine.vis_ink_sequence(target_batch, save_name="{}_gt".format(idx))
 
       # Get stroke embeddings.
       forward_pass = self.embedding_model(inputs=input_batch, training=False)
@@ -526,6 +526,7 @@ class EvalEngine(object):
       
       decoded_batch[C.INP_START_COORD] = target_batch["start_coord"]
       self.vis_engine.vis_stroke(decoded_batch, save_name="{}_decoded_original_len".format(idx))
+      # self.vis_engine.vis_ink_sequence(decoded_batch, save_name="{}_decoded_original_len".format(idx))
 
       gt_strokes = padded_to_stroke_list(dict_tf_to_numpy(target_batch),
                                          self.dataset.np_undo_preprocessing)

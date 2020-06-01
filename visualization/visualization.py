@@ -174,9 +174,11 @@ def render_strokes(strokes, x_borders=None, y_borders=None, colors=None, marker_
   for i, stroke in enumerate(strokes):
     color = colors[i] if colors is not None else None
     if marker_size > 0:
-      ax.plot(stroke[:-1, 0], stroke[:-1, 1], lw=2, color=color, marker='o', markersize=marker_size)
+      # ax.plot(stroke[:-1, 0], stroke[:-1, 1], lw=2, color=color, marker='o', markersize=marker_size)
+      ax.plot(stroke[:, 0], stroke[:, 1], lw=2, color=color, marker='o', markersize=marker_size)
     else:
-      ax.plot(stroke[:-1, 0], stroke[:-1, 1], lw=2, color=color)
+      # ax.plot(stroke[:-1, 0], stroke[:-1, 1], lw=2, color=color)
+      ax.plot(stroke[:, 0], stroke[:, 1], lw=2, color=color)
   return fig, ax
 
 

@@ -93,8 +93,10 @@ def main(argv):
         sample_ids = [2, 9, 10, 17, 29, 30]
       elif config.data.data_name == "didi_all":
         sample_ids = [5, 19, 28]
+      elif config.data.data_name == "didi_wo_text_rdp":
+        sample_ids = [2, 9, 10, 17, 29, 30]
       else:
-        raise Exception("Dataset not recognized.")
+        raise Exception("Dataset {} not recognized.".format(config.data.data_name))
       
       eval_engine = EvalEngine(config, dataset, embedding_model, predictive_model, glog=True)
       if args.qualitative:

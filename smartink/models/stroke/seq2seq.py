@@ -172,7 +172,7 @@ class InkSeq2Seq(BaseModel):
     self.op_decoder_inputs = None
     self.op_input_seq_len = None
     self.op_embedding = None
-    self.op_decoder_initial_state = None
+    # self.op_decoder_initial_state = None
     self.op_embedding_sample = None
   
   def call(self, inputs, output_len=None, training=None, **kwargs):
@@ -273,12 +273,12 @@ class InkSeq2Seq(BaseModel):
     embedding_sample = tf.expand_dims(self.op_embedding_sample, axis=1)
     
     if decoder_rnn_state is None:
-      self.op_decoder_initial_state = RNNUtils.get_initial_states_layer(
+      op_decoder_initial_state = RNNUtils.get_initial_states_layer(
           self.decoder_rnn, embedding_sample)
       if self.dynamic_h0:
         decoder_state = self.decoder_state_nn(embedding_sample[:, 0])
-        self.op_decoder_initial_state[0] = tf.split(decoder_state, 2, axis=-1)
-      decoder_rnn_state = self.op_decoder_initial_state
+        op_decoder_initial_state[0] = tf.split(decoder_state, 2, axis=-1)
+      decoder_rnn_state = op_decoder_initial_state
     if decoder_inputs is not None:
       output_len = tf.shape(input=decoder_inputs)[1]
     

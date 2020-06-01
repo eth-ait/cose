@@ -55,6 +55,21 @@ def kld_normal_diagonal_standard_prior(mu1, sigma1):
   return tf.reduce_mean(input_tensor=-0.5 * (tf.reduce_sum(input_tensor=kld_, keepdims=False, axis=-1)))
 
 
+def kld_normal_diagonal_standard_prior_normalized(mu1, sigma1):
+  """Kullback-Leibler divergence normalized by the latent size.
+
+  Between a Gaussian with diagonal covariance and zero-mean unit-variance
+  Gaussian.
+  Args:
+      mu1:
+      sigma1: standard deviation vector.
+
+  Returns:
+  """
+  kld_ = (1 + sigma1 - tf.square(mu1) - tf.exp(sigma1))
+  return -0.5*(tf.reduce_mean(kld_))
+
+
 def logli_normal_diagonal(x, mu, sigma):
   """Log-likelihood of a Gaussian with diagonal covariance.
 
