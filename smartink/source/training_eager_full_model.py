@@ -42,8 +42,9 @@ class TrainingEngine(object):
     self.optimizer_emb_pred = tf.keras.optimizers.Adam(learning_rate=self.learning_rate_emb_pred)
     self.learning_rate_pos_pred = LearningRateFactory.get(config.experiment.learning_rate)
     self.optimizer_pos_pred = tf.keras.optimizers.Adam(learning_rate=self.learning_rate_pos_pred)
-    self.step = tf.Variable(0, name="global_step")
-    self.epoch = tf.Variable(0, name="global_epoch")
+    self.step = tf.Variable(0, name="global_step", trainable=False)
+    self.epoch = tf.Variable(0, name="global_epoch", trainable=False)
+    self.model.set_step(self.step)
     
     # self.optimizer.iterations
 

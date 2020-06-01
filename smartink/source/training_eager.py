@@ -38,8 +38,9 @@ class TrainingEngine(object):
     # Create Tensorflow Routines.
     self.learning_rate = LearningRateFactory.get(config.experiment.learning_rate)
     self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate)
-    self.step = tf.Variable(0, name="global_step")
-    self.epoch = tf.Variable(0, name="global_epoch")
+    self.step = tf.Variable(0, name="global_step", trainable=False)
+    self.epoch = tf.Variable(0, name="global_epoch", trainable=False)
+    self.model.set_step(self.step)
     
     # self.optimizer.iterations
 

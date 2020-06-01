@@ -25,10 +25,17 @@ class BaseModel(tf.keras.Model):
 
     self.config_loss = config_loss
     self.run_mode = run_mode
+    self.step = None
 
     if self.run_mode == C.RUN_EAGER and not tf.executing_eagerly():
       raise ValueError("It is eager, passed " + self.run_mode)
 
+  def set_step(self, step_var):
+    """Set global step variable. It is incremented by the training script after
+    every iteration.
+    """
+    self.step = step_var
+  
   def loss(self, predictions, targets, seq_len=None, prefix="", training=True):
     if not prefix:
       prefix = self.config_loss.get("prefix", "")
@@ -41,8 +48,8 @@ class BaseModel(tf.keras.Model):
         run_mode=self.run_mode,
         training=training)
 
-  @classmethod
-  def loss_fn(cls,
+  # @classmethod
+  def loss_fn(self,
               loss_config,
               predictions,
               targets,
@@ -69,16 +76,10 @@ class BaseModel(tf.keras.Model):
       loss_reduce = loss_term["reduce"]
       loss_weight = loss_term["weight"]
 
-      # if not isinstance(loss_weight, float):
-      #   global_step = tf.compat.v1.train.get_or_create_global_step()
-      #   start, end, increment = loss_term["weight"]["values"]
-      #
-      #   loss_weight = end - (end - start) * increment**tf.cast(
-      #       global_step, tf.float32)
-      #
-      #   if run_mode != C.RUN_EAGER:
-      #     tf.compat.v1.summary.scalar(
-      #         "training/kl_weight", loss_weight, collections=["training"])
+      if not isinstance(loss_weight, float):
+        start, end, increment = loss_term["weight"]["values"]
+        loss_weight = end - (end - start) * increment**tf.cast(self.step, tf.float32)
+        loss_dict["kldw"] = loss_weight
 
       if not training:
         loss_weight = 1.0
@@ -123,6 +124,9 @@ class BaseModel(tf.keras.Model):
       elif loss_type == C.KLD_STANDARD:
         loss_sequence = loss.kld_normal_diagonal_standard_prior(
             loss_predictions[C.MU], loss_predictions[C.SIGMA])
+      elif loss_type == C.KLD_STANDARD_NORM:
+        loss_sequence = loss.kld_normal_diagonal_standard_prior_normalized(
+          loss_predictions[C.MU], loss_predictions[C.SIGMA])
       elif loss_type == C.KLD:
         loss_sequence = loss.kld_normal_diagonal(
             loss_predictions[C.MU],
@@ -157,7 +161,7 @@ class BaseModel(tf.keras.Model):
       else:
         loss_op = tf.reduce_mean(input_tensor=loss_sequence)
 
-      if loss_type == C.KLD_STANDARD:
+      if loss_type in [C.KLD_STANDARD, C.KLD_STANDARD_NORM]:
         loss_op = tf.maximum(loss_op, 0.2)
 
       # The loss term is weighted only for the optimization. In order to enable
