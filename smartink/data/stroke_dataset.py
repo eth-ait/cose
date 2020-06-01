@@ -56,6 +56,10 @@ class TFRecordStroke(Dataset):
     self.concat_t_inputs = kwargs.get("concat_t_inputs", False)
     self.reverse_prob = kwargs.get("reverse_prob", 0)
     self.random_noise_factor = kwargs.get("random_noise_factor", 0)
+    
+    self.rdp = kwargs.get("rdp", False)
+    self.rdp_didi_pp = kwargs.get("rdp_didi_pp", False)
+    
     # Some pre-processing operations spoils the data (such as adding noise).
     # We may want to keep the ground-truth targets intact.
     # TODO(aksan) this requires some refactoring as it is prone to errors
@@ -109,6 +113,11 @@ class TFRecordStroke(Dataset):
         functools.partial(self.parse_tfexample_fn),
         num_parallel_calls=self.num_parallel_calls)
     self.tf_data = self.tf_data.prefetch(self.batch_size * 2)
+    
+    if self.rdp and self.rdp_didi_pp:
+      self.tf_data = self.tf_data.map(
+          functools.partial(self.rdp_size_normalization),
+          num_parallel_calls=self.num_parallel_calls)
 
     # Converts batch of strokes into individual samples.
     self.tf_data = self.tf_data.interleave(
@@ -225,6 +234,43 @@ class TFRecordStroke(Dataset):
   def pp_pad_to_max_len(self, sample):
     padding = self.max_length_threshold - tf.shape(input=sample["ink"])[1]
     sample["ink"] = tf.pad(tensor=sample["ink"], paddings=[[0, 0], [0, padding], [0, 0]])
+    return sample
+
+  def rdp_size_normalization(self, sample):
+    """Normalize size such that y-dimension is bounded by 1.
+    
+    Note that this is a default pre-processing step coming with the dataset
+    scripts. We wanted to keep RDP-preprocessed data as in raw format so that
+    it can be used in sketch-rnn. In order to make use of RDP version in our
+    models, we need to apply size normalization first.
+    
+    Args:
+      sample:
+    Returns:
+    """
+    # Discards the padded entries and concatenates individual strokes.
+    seq_mask = tf.sequence_mask(sample["stroke_length"])
+    point_indices = tf.where(seq_mask)
+    nonpadded_xy = tf.gather_nd(sample["ink"], point_indices)[:, 0:2]
+    
+    max_ = tf.reduce_max(nonpadded_xy, axis=0)
+    # max_x = max_[0]
+    max_y = max_[1]
+    
+    min_ = tf.reduce_min(nonpadded_xy, axis=0)
+    min_x = min_[0]
+    min_y = min_[1]
+    
+    # width = max_x - min_x
+    height = max_y - min_y
+    height = tf.cond(height < 1e-6, lambda: 1., lambda: height)
+
+    seq_mask = tf.cast(tf.expand_dims(seq_mask, axis=-1), tf.float32)
+    
+    x_ = ((sample["ink"][:, :, 0:1] - min_x) / height) * seq_mask
+    y_ = ((sample["ink"][:, :, 1:2] - min_y) / height) * seq_mask
+    
+    sample["ink"] = tf.concat([x_, y_, sample["ink"][:,:,2:]], axis=2)
     return sample
 
   def create_meta_data(self):
@@ -626,15 +672,15 @@ class TFRecordStroke(Dataset):
     model_input[C.INP_END_COORD] = tf_sample_dict[C.INP_END_COORD][0]
     model_input[C.INP_T] = tf_sample_dict[C.INP_T]
     model_input[C.TARGET_T_INK] = tf_sample_dict[C.TARGET_T_INK]
-    # model_input[C.INP_NUM_STROKE] = tf.shape(tf_sample_dict["stroke_length"])
-
+    model_input[C.INP_NUM_STROKE] = tf.shape(input=tf_sample_dict["stroke_length"])
+    
     model_target = dict()
     if "target_ink" in tf_sample_dict:
       ink_t = tf.concat([
           tf_sample_dict["target_ink"][0, :, 0:2],
           tf_sample_dict["target_ink"][0, :, 3:4]
-      ],
-                        axis=-1)
+      ], axis=-1)
+      
       model_input[C.INP_DEC] = tf.concat(
           [tf.zeros_like(ink_t[0:1]), ink_t[0:-1]], axis=0)
 
@@ -653,6 +699,7 @@ class TFRecordStroke(Dataset):
     model_target[C.TARGET_T_STROKE] = tf_sample_dict[C.TARGET_T_INK][:, 0:2]
     # timestamp already discarded.
     model_target[C.TARGET_T_PEN] = tf_sample_dict[C.TARGET_T_INK][:, 2:3]
+    model_target[C.INP_NUM_STROKE] = tf.shape(input=tf_sample_dict["stroke_length"])
     return model_input, model_target
 
   def np_undo_preprocessing(self, ink_batch, start_point=None, seq_len=None):
@@ -731,23 +778,30 @@ class TFRecordStroke(Dataset):
 
     Returns:
     """
-    feature_to_type = {
-        "ink": tf.io.VarLenFeature(dtype=tf.float32),
-        "stroke_length": tf.io.VarLenFeature(dtype=tf.int64),
-        "num_strokes": tf.io.FixedLenFeature([], dtype=tf.int64),
-        # "shape": tf.FixedLenFeature([3], dtype=tf.int64),
-        # "ink_hash": tf.FixedLenFeature([], dtype=tf.string),
-    }
 
-    parsed_features = tf.io.parse_single_example(serialized=proto, features=feature_to_type)
-    parsed_features["ink"] = tf.reshape(
-        tf.sparse.to_dense(parsed_features["ink"]),
-        (parsed_features["num_strokes"], -1, 4))
-    parsed_features["stroke_length"] = tf.sparse.to_dense(
-        parsed_features["stroke_length"])
-    parsed_features["num_strokes"] = tf.tile(
-        tf.expand_dims(parsed_features["num_strokes"], axis=0),
-        [parsed_features["num_strokes"]])
+    if self.rdp:
+      feature_to_type = dict()
+      feature_to_type["rdp_ink"] = tf.io.VarLenFeature(dtype=tf.float32)
+      feature_to_type["rdp_stroke_length"] = tf.io.VarLenFeature(dtype=tf.int64)
+      feature_to_type["rdp_num_strokes"] = tf.io.FixedLenFeature([], dtype=tf.int64)
+      
+      parsed_features = tf.io.parse_single_example(serialized=proto, features=feature_to_type)
+      parsed_features["ink"] = tf.reshape(tf.sparse.to_dense(parsed_features["rdp_ink"]), (parsed_features["rdp_num_strokes"], -1, 4))
+      parsed_features["stroke_length"] = tf.sparse.to_dense(parsed_features["rdp_stroke_length"])
+      parsed_features["num_strokes"] = tf.tile(tf.expand_dims(parsed_features["rdp_num_strokes"], axis=0), [parsed_features["rdp_num_strokes"]])
+    else:
+      feature_to_type = {
+          "ink": tf.io.VarLenFeature(dtype=tf.float32),
+          "stroke_length": tf.io.VarLenFeature(dtype=tf.int64),
+          "num_strokes": tf.io.FixedLenFeature([], dtype=tf.int64),
+          # "shape": tf.FixedLenFeature([3], dtype=tf.int64),
+          # "ink_hash": tf.FixedLenFeature([], dtype=tf.string),
+      }
+      parsed_features = tf.io.parse_single_example(serialized=proto, features=feature_to_type)
+      parsed_features["ink"] = tf.reshape(tf.sparse.to_dense(parsed_features["ink"]), (parsed_features["num_strokes"], -1, 4))
+      parsed_features["stroke_length"] = tf.sparse.to_dense(parsed_features["stroke_length"])
+      parsed_features["num_strokes"] = tf.tile(tf.expand_dims(parsed_features["num_strokes"], axis=0), [parsed_features["num_strokes"]])
+    
     return parsed_features
 
 
@@ -862,6 +916,11 @@ class TFRecordBatchDiagram(TFRecordStroke):
         num_parallel_calls=self.num_parallel_calls)
     self.tf_data = self.tf_data.prefetch(self.batch_size * 2)
     self.tf_data = self.tf_data.filter(functools.partial(self.__pp_filter))
+    
+    if self.rdp and self.rdp_didi_pp:
+      self.tf_data = self.tf_data.map(
+          functools.partial(self.rdp_size_normalization),
+          num_parallel_calls=self.num_parallel_calls)
 
   def tf_data_normalization(self):
     # Apply normalization.
@@ -1193,6 +1252,11 @@ class TFRecordSingleDiagram(TFRecordStroke):
         functools.partial(self.__pp_filter_by_length),
         num_parallel_calls=self.num_parallel_calls)
     self.tf_data = self.tf_data.filter(functools.partial(self.__pp_filter))
+    
+    if self.rdp and self.rdp_didi_pp:
+      self.tf_data = self.tf_data.map(
+          functools.partial(self.rdp_size_normalization),
+          num_parallel_calls=self.num_parallel_calls)
 
   def tf_preprocessing(self):
     super(TFRecordSingleDiagram, self).tf_preprocessing()
@@ -1337,60 +1401,66 @@ if __name__ == "__main__":
   # from tensorflow.python.framework.ops import disable_eager_execution
   # disable_eager_execution()
 
-  DATA_DIR = "/local/home/emre/Projects/google/data/didi_wo_text/"
+  DATA_DIR = "/local/home/emre/Projects/google/data/didi_wo_text_rdp/"
   tfrecord_pattern = "diagrams_wo_text_20200131-?????-of-?????"
   # DATA_DIR = "/local/home/emre/Projects/google/data/didi_all/"
   # tfrecord_pattern = "diagrams_20200131-?????-of-?????"
   
   SPLIT = "test"
-  META_FILE = "didi_wo_text-stats-origin_abs_pos.npy"
+  # META_FILE = "didi_wo_text-stats-origin_abs_pos.npy"
+  META_FILE = "didi_wo_text_rdp-stats-relative_pos.npy"
   data_path_ = [os.path.join(DATA_DIR, SPLIT, tfrecord_pattern)]
 
-  # train_data = TFRecordStroke(
+  train_data = TFRecordStroke(
+      data_path=data_path_,
+      meta_data_path=DATA_DIR + META_FILE,
+      batch_size=1,
+      shuffle=False,
+      normalize=True,
+      pp_to_origin=True,
+      pp_relative_pos=True,
+      run_mode=C.RUN_EAGER,
+      max_length_threshold=301,
+      fixed_len=False,
+      mask_pen=False,
+      scale_factor=0,
+      resampling_factor=0,
+      random_noise_factor=0,
+      gt_targets=False,
+      n_t_targets=4,
+      concat_t_inputs=False,
+      reverse_prob=0,
+      t_drop_ratio=0,
+      affine_prob=0,
+      min_length_threshold = 2,
+      rdp=True,
+      rdp_didi_pp=False,
+      )
+
+  # train_data = TFRecordBatchDiagram(
   #     data_path=data_path_,
   #     meta_data_path=DATA_DIR + META_FILE,
-  #     batch_size=1,
-  #     shuffle=False,
+  #     batch_size=2,
+  #     shuffle=True,
   #     normalize=False,
-  #     pp_to_origin=True,
+  #     pp_to_origin=False,
   #     pp_relative_pos=False,
   #     run_mode=C.RUN_EAGER,
   #     max_length_threshold=201,
   #     fixed_len=False,
   #     mask_pen=False,
-  #     scale_factor=0,
-  #     resampling_factor=99,
-  #     random_noise_factor=0,
-  #     gt_targets=True,
-  #     n_t_targets=200,
-  #     concat_t_inputs=False,
-  #     reverse_prob=0,
-  #     t_drop_ratio=0,
+  #
   #     affine_prob=0,
+  #     reverse_prob=0,
+  #     scale_factor=0,
+  #     resampling_factor=0,
+  #     gt_targets=True,
+  #     n_t_targets=4,
+  #     concat_t_inputs=False,
+  #     t_drop_ratio = 0,
+  #     min_length_threshold = 1,
+  #     rdp=True,
   #     )
-
-  train_data = TFRecordBatchDiagram(
-      data_path=data_path_,
-      meta_data_path=DATA_DIR + META_FILE,
-      batch_size=1,
-      shuffle=True,
-      normalize=False,
-      pp_to_origin=True,
-      pp_relative_pos=False,
-      run_mode=C.RUN_EAGER,
-      max_length_threshold=201,
-      fixed_len=False,
-      mask_pen=False,
-
-      affine_prob=0.3,
-      reverse_prob=0,
-      scale_factor=0,
-      resampling_factor=0,
-      gt_targets=True,
-      n_t_targets=4,
-      concat_t_inputs=False,
-      t_drop_ratio = 0,
-      )
 
   from visualization.visualization import InkVisualizer
   from smartink.util.utils import dict_tf_to_numpy

@@ -20,6 +20,7 @@ from smartink.config.configuration import LossConfig
 from smartink.util.utils import err_unknown_type
 from smartink.data.stroke_dataset import TFRecordStroke
 from smartink.data.stroke_dataset import TFRecordSingleDiagram
+from smartink.data.ink_dataset import TFRecordInkSequence
 from smartink.models.stroke.t_emb import TEmbedding
 from smartink.models.stroke.seq2seq import InkSeq2Seq
 
@@ -37,8 +38,7 @@ def define_flags():
   flags.DEFINE_string("metadata_type", "position", "position or velocity.")
   # Data preprocessing.
   flags.DEFINE_bool("skip_normalization", False, "")
-  flags.DEFINE_bool("mask_encoder_pen", False,
-                    "whether to mask pen information for encoder or not.")
+  flags.DEFINE_bool("mask_encoder_pen", False, "whether to mask pen information for encoder or not.")
   flags.DEFINE_integer("resampling_factor", 0, "Temporal resampling rate. Randomly sampled between 1 and the given value.")
   flags.DEFINE_float("scale_factor", 0, "Amount of scaling.")
   flags.DEFINE_float("affine_prob", 0, "Chance of applying affine transf.")
@@ -48,6 +48,9 @@ def define_flags():
   flags.DEFINE_boolean("concat_t_inputs", False, "whether to concatenate input points with t.")
   flags.DEFINE_float("t_drop_ratio", 0, "Drop ratio of steps in temporal resampling.")
   flags.DEFINE_boolean("gt_targets", False, "whether to keep the ground-truth targets after pre-processing or not.")
+  flags.DEFINE_boolean("ink_dataset", False, "whether to use stroke or full ink representation.")
+  flags.DEFINE_boolean("rdp_dataset", False, "whether to use shorter rdp version or the full.")
+  flags.DEFINE_boolean("rdp_didi_pp", False, "whether to apply didi preprocessing or not.")
   
   # Experiment details
   flags.DEFINE_integer("batch_size", 100, "batch size for training")
@@ -92,9 +95,9 @@ def define_flags():
                        "number of units for stroke embeddings.")
   flags.DEFINE_bool("use_vae", False, "VAE regularizer on the stroke space.")
   flags.DEFINE_float("kld_weight", 1.0, "VAE KLD loss weight.")
-  flags.DEFINE_float("kld_start", 0.1, "Initial VAE KLD loss weight.")
-  flags.DEFINE_float("kld_increment", 0.99995,
-                     "VAE KLD loss weight increment per step.")
+  flags.DEFINE_float("kld_start", 0.01, "Initial VAE KLD loss weight.")
+  flags.DEFINE_float("kld_increment", 0.0, "VAE KLD loss weight increment per step (0.99995).")
+  flags.DEFINE_string("kld_type", "kld_p0", "kld_p0 or kld_p0_norm.")
   # t-decoder
   flags.DEFINE_integer("decoder_layers", 4, "number of dense layers in decoder.")
   flags.DEFINE_list("decoder_hidden_units", "512,512,512,512",
@@ -147,8 +150,8 @@ def get_config(FLAGS, experiment_id=None):
       data_name=FLAGS.data_name,
       data_tfrecord_fname=C.DATASET_MAP[FLAGS.data_name]["data_tfrecord_fname"],
       data_meta_fname=C.DATASET_MAP[FLAGS.data_name][FLAGS.metadata_type],
-      pp_to_origin=FLAGS.metadata_type == "position",
-      pp_relative_pos=FLAGS.metadata_type == "velocity",
+      pp_to_origin="position" in FLAGS.metadata_type,
+      pp_relative_pos="velocity" in FLAGS.metadata_type,
       normalize=not FLAGS.skip_normalization,
       batch_size=FLAGS.batch_size,
       max_length_threshold=201,
@@ -162,6 +165,9 @@ def get_config(FLAGS, experiment_id=None):
       n_t_samples=FLAGS.n_t_samples,
       int_t_samples=FLAGS.int_t_samples,
       concat_t_inputs=FLAGS.concat_t_inputs,
+      ink_dataset=FLAGS.ink_dataset,
+      rdp_dataset=FLAGS.rdp_dataset,
+      rdp_didi_pp=FLAGS.rdp_didi_pp,
   )
   config.gdrive = AttrDict(
       credential=None,  # Set automatically below.
@@ -241,15 +247,16 @@ def get_config(FLAGS, experiment_id=None):
 
   if FLAGS.use_vae:
     config.loss.embedding_kld = LossConfig(
-        loss_type=C.KLD_STANDARD,
+        loss_type=FLAGS.kld_type,  # C.KLD_STANDARD or C.KLD_STANDARD_NORM
         target_key=None,
         out_key="embedding",
         reduce_type=C.R_MEAN_STEP)
 
     config.loss.embedding_kld.weight = FLAGS.kld_weight
-    # config.loss.embedding_kld.weight = dict(
-    #     type="linear_decay",
-    #     values=[FLAGS.kld_start, FLAGS.kld_weight, FLAGS.kld_increment])
+    if FLAGS.kld_increment > 0:
+      config.loss.embedding_kld.weight = dict(
+          type="linear_decay",
+          values=[FLAGS.kld_start, FLAGS.kld_weight, FLAGS.kld_increment])
 
   if FLAGS.reg_emb_weight > 0:
     config.loss.embedding_l2 = LossConfig(
@@ -401,9 +408,15 @@ def build_embedding_model(config_, run_mode=C.RUN_STATIC):
 def build_dataset(config_, run_mode=C.RUN_STATIC, split=C.DATA_TRAIN):
   """Build dataset object."""
 
+  data_cls = TFRecordStroke
+  data_test_cls = TFRecordSingleDiagram
+  if config_.data.get("ink_dataset", False):
+    data_cls = TFRecordInkSequence
+    data_test_cls = TFRecordInkSequence
+  
   dataset_ = None
   if split == C.DATA_TRAIN:
-    dataset_ = TFRecordStroke(
+    dataset_ = data_cls(
         data_path=config_.data.train_data_path,
         meta_data_path=config_.data.meta_data_path,
         batch_size=config_.data.batch_size,
@@ -424,9 +437,11 @@ def build_dataset(config_, run_mode=C.RUN_STATIC, split=C.DATA_TRAIN):
         n_t_targets=config_.data.get("n_t_samples", 1),
         int_t_samples=config_.data.get("int_t_samples", False),
         concat_t_inputs=config_.data.get("concat_t_inputs", False),
+        rdp=config_.data.get("rdp_dataset", False),
+        rdp_didi_pp=config_.data.get("rdp_didi_pp", False),
         )
   elif split == C.DATA_VALID:
-    dataset_ = TFRecordStroke(
+    dataset_ = data_cls(
         data_path=config_.data.valid_data_path,
         meta_data_path=config_.data.meta_data_path,
         batch_size=config_.data.batch_size,
@@ -440,12 +455,14 @@ def build_dataset(config_, run_mode=C.RUN_STATIC, split=C.DATA_TRAIN):
         fixed_len=config_.data.get("fixed_len", False),
         int_t_samples=config_.data.get("int_t_samples", False),
         concat_t_inputs=config_.data.get("concat_t_inputs", False),
+        rdp=config_.data.get("rdp_dataset", False),
+        rdp_didi_pp=config_.data.get("rdp_didi_pp", False),
         )
   elif split == C.DATA_TEST:
-    dataset_ = TFRecordSingleDiagram(
+    dataset_ = data_test_cls(
         data_path=config_.data.test_data_path,
         meta_data_path=config_.data.meta_data_path,
-        batch_size=config_.data.batch_size,
+        batch_size=1,
         pp_to_origin=config_.data.pp_to_origin,
         pp_relative_pos=config_.data.pp_relative_pos,
         normalize=config_.data.normalize,
@@ -456,6 +473,8 @@ def build_dataset(config_, run_mode=C.RUN_STATIC, split=C.DATA_TRAIN):
         fixed_len=config_.data.get("fixed_len", False),
         int_t_samples=config_.data.get("int_t_samples", False),
         concat_t_inputs=config_.data.get("concat_t_inputs", False),
+        rdp=config_.data.get("rdp_dataset", False),
+        rdp_didi_pp=config_.data.get("rdp_didi_pp", False),
         )
   else:
     err_unknown_type(split)

@@ -57,6 +57,8 @@ def define_flags():
   flags.DEFINE_boolean("concat_t_inputs", False, "whether to concatenate input points with t.")
   flags.DEFINE_float("t_drop_ratio", 0, "Drop ratio of steps in temporal resampling.")
   flags.DEFINE_boolean("gt_targets", False, "whether to keep the ground-truth targets after pre-processing or not.")
+  flags.DEFINE_boolean("rdp_dataset", False, "whether to use shorter rdp version or the full.")
+  flags.DEFINE_boolean("rdp_didi_pp", False, "whether to apply didi preprocessing or not.")
   
   # Experiment details
   flags.DEFINE_integer("batch_size", 100, "batch size for training")
@@ -194,8 +196,8 @@ def get_config(FLAGS, experiment_id=None):
       data_name=FLAGS.data_name,
       data_tfrecord_fname=C.DATASET_MAP[FLAGS.data_name]["data_tfrecord_fname"],
       data_meta_fname=C.DATASET_MAP[FLAGS.data_name][FLAGS.metadata_type],
-      pp_to_origin=FLAGS.metadata_type == "position",
-      pp_relative_pos=FLAGS.metadata_type == "velocity",
+      pp_to_origin="position" in FLAGS.metadata_type,
+      pp_relative_pos="velocity" in FLAGS.metadata_type,
       normalize=not FLAGS.skip_normalization,
       batch_size=FLAGS.batch_size,
       max_length_threshold=201,
@@ -208,7 +210,9 @@ def get_config(FLAGS, experiment_id=None):
       reverse_prob=FLAGS.reverse_prob,
       n_t_samples=FLAGS.n_t_samples,
       int_t_samples=FLAGS.int_t_samples,
-      concat_t_inputs=FLAGS.concat_t_inputs
+      concat_t_inputs=FLAGS.concat_t_inputs,
+      rdp_dataset=FLAGS.rdp_dataset,
+      rdp_didi_pp=FLAGS.rdp_didi_pp,
       )
   config.gdrive = AttrDict(
       credential=None,  # Set automatically below.
@@ -673,6 +677,8 @@ def build_dataset(config_, run_mode=C.RUN_STATIC, split=C.DATA_TRAIN):
         n_t_targets=config_.data.get("n_t_samples", 1),
         int_t_samples=config_.data.get("int_t_samples", False),
         concat_t_inputs=config_.data.get("concat_t_inputs", False),
+        rdp=config_.data.get("rdp_dataset", False),
+        rdp_didi_pp=config_.data.get("rdp_didi_pp", False),
         )
   elif split == C.DATA_VALID:
     dataset_ = TFRecordBatchDiagram(
@@ -687,6 +693,8 @@ def build_dataset(config_, run_mode=C.RUN_STATIC, split=C.DATA_TRAIN):
         max_length_threshold=config_.data.max_length_threshold,
         mask_pen=config_.data.mask_pen,
         concat_t_inputs=config_.data.get("concat_t_inputs", False),
+        rdp=config_.data.get("rdp_dataset", False),
+        rdp_didi_pp=config_.data.get("rdp_didi_pp", False),
         )
   elif split == C.DATA_TEST:
     dataset_ = TFRecordSingleDiagram(
@@ -701,6 +709,8 @@ def build_dataset(config_, run_mode=C.RUN_STATIC, split=C.DATA_TRAIN):
         run_mode=run_mode,
         mask_pen=config_.data.mask_pen,
         concat_t_inputs=config_.data.get("concat_t_inputs", False),
+        rdp=config_.data.get("rdp_dataset", False),
+        rdp_didi_pp=config_.data.get("rdp_didi_pp", False),
         )
   else:
     err_unknown_type(split)

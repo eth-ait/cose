@@ -64,11 +64,18 @@ class TFRecordInkSequence(TFRecordStroke):
         functools.partial(self.parse_tfexample_fn),
         num_parallel_calls=self.num_parallel_calls)
     self.tf_data = self.tf_data.prefetch(self.batch_size*2)
+    
+    if self.rdp and self.rdp_didi_pp:
+      self.tf_data = self.tf_data.map(
+          functools.partial(self.rdp_size_normalization),
+          num_parallel_calls=self.num_parallel_calls)
   
     # Convert batch of strokes into a single sequence of points.
     self.tf_data = self.tf_data.map(
         functools.partial(self.to_ink_sequence),
         num_parallel_calls=self.num_parallel_calls)
+
+    self.tf_data = self.tf_data.filter(functools.partial(self.__pp_filter))
   
   def to_ink_sequence(self, sample):
     """Discards the padded entries and concatenates individual strokes."""
@@ -77,6 +84,15 @@ class TFRecordInkSequence(TFRecordStroke):
     sample["ink"] = tf.expand_dims(tf.gather_nd(sample["ink"], point_indices), axis=0)
     sample["stroke_length"] = tf.reduce_sum(sample["stroke_length"])
     return sample
+  
+  def __pp_filter(self, sample):
+    has_strokes, is_long_enough = True, True
+    if self.min_length_threshold > 0:
+      is_long_enough = sample["stroke_length"] > self.min_length_threshold
+    if self.max_length_threshold > 0:
+      is_long_enough = tf.math.logical_and(
+          is_long_enough, sample["stroke_length"] < self.max_length_threshold)
+    return is_long_enough
 
 
 if __name__ == "__main__":
@@ -85,44 +101,47 @@ if __name__ == "__main__":
   config.gpu_options.per_process_gpu_memory_fraction = 0.5
   tf.compat.v1.enable_eager_execution(config=config)
   
-  DATA_DIR = "/local/home/emre/Projects/google/data/didi_wo_text/"
+  DATA_DIR = "/local/home/emre/Projects/google/data/didi_wo_text_rdp/"
   tfrecord_pattern = "diagrams_wo_text_20200131-?????-of-?????"
   
-  SPLIT = "test"
+  SPLIT = "training"
+  # META_FILE = "didi_wo_text_rdp-stats-relative_pos.npy"
   META_FILE = "didi_wo_text-stats-origin_abs_pos.npy"
   data_path_ = [os.path.join(DATA_DIR, SPLIT, tfrecord_pattern)]
   
   train_data = TFRecordInkSequence(
       data_path=data_path_,
       meta_data_path=DATA_DIR + META_FILE,
-      batch_size=100,
+      batch_size=1,
       shuffle=False,
-      normalize=False,
+      normalize=True,
       pp_to_origin=True,
       pp_relative_pos=False,
       run_mode=C.RUN_EAGER,
-      max_length_threshold=2000,
+      max_length_threshold=301,
       fixed_len=False,
       mask_pen=False,
       scale_factor=0,
       resampling_factor=0,
       random_noise_factor=0,
-      gt_targets=True,
-      n_t_targets=200,
+      gt_targets=False,
+      n_t_targets=4,
       concat_t_inputs=False,
       reverse_prob=0,
-      t_drop_ratio=0.6,
+      t_drop_ratio=0,
       affine_prob=0,
+      rdp=True,
+      rdp_didi_pp=True,
+      min_length_threshold=2
       )
   
-  # from visualization.visualization import InkVisualizer
-  # from smartink.util.utils import dict_tf_to_numpy
-  # import time
-  #
-  #
-  # vis_engine = InkVisualizer(train_data.np_undo_preprocessing,
-  #                            DATA_DIR,
-  #                            animate=False)
+  from visualization.visualization import InkVisualizer
+  from smartink.util.utils import dict_tf_to_numpy
+  import time
+
+  vis_engine = InkVisualizer(train_data.np_undo_preprocessing,
+                             DATA_DIR,
+                             animate=False)
   # seq_lens = []
   # starts = []
   # sample_id = 0
