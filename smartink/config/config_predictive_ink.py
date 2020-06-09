@@ -483,8 +483,6 @@ def restore_config(FLAGS, experiment_id):
     log_dir = FLAGS.experiment_dir
     eval_dir = FLAGS.eval_dir
     gdrive_key = FLAGS.gdrive_api_key
-
-  eval_dir = FLAGS.eval_dir
   
   # Check if the experiment directory already exists.
   model_dir_query = glob.glob(os.path.join(log_dir, experiment_id + "*"))
