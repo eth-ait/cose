@@ -265,13 +265,15 @@ def get_config(FLAGS, experiment_id=None):
         out_key="embedding",
         reduce_type=C.R_MEAN_STEP,
         weight=FLAGS.reg_emb_weight)
-    
+
   try:
-    data_root = os.environ["PREDICTIVE_SKETCHING_DATA_DIR"]
-    log_dir = os.environ["PREDICTIVE_SKETCHING_LOG_DIR"]
-    eval_dir = os.environ["PREDICTIVE_SKETCHING_EVAL_DIR"]
+    data_root = os.environ["COSE_DATA_DIR"]
+    log_dir = os.environ["COSE_LOG_DIR"]
+    eval_dir = os.environ["COSE_EVAL_DIR"]
     gdrive_key = os.environ["GDRIVE_API_KEY"]
   except KeyError:
+    if FLAGS.data_dir is None or FLAGS.eval_dir is None or FLAGS.experiment_dir is None:
+      raise Exception("Either environment variables or FLAGs must be set.")
     data_root = FLAGS.data_dir
     log_dir = FLAGS.experiment_dir
     eval_dir = FLAGS.eval_dir
@@ -314,14 +316,19 @@ def get_config(FLAGS, experiment_id=None):
   config.dump(config.experiment.model_dir)
   return config
     
-def restore_config(experiment_id):
+def restore_config(FLAGS, experiment_id):
   try:
-    data_root = os.environ["PREDICTIVE_SKETCHING_DATA_DIR"]
-    log_dir = os.environ["PREDICTIVE_SKETCHING_LOG_DIR"]
-    eval_dir = os.environ["PREDICTIVE_SKETCHING_EVAL_DIR"]
+    data_root = os.environ["COSE_DATA_DIR"]
+    log_dir = os.environ["COSE_LOG_DIR"]
+    eval_dir = os.environ["COSE_EVAL_DIR"]
     gdrive_key = os.environ["GDRIVE_API_KEY"]
   except KeyError:
-    raise Exception("Environment variables are not set.")
+    if FLAGS.data_dir is None or FLAGS.eval_dir is None or FLAGS.experiment_dir is None:
+      raise Exception("Either environment variables or FLAGs must be set.")
+    data_root = FLAGS.data_dir
+    log_dir = FLAGS.experiment_dir
+    eval_dir = FLAGS.eval_dir
+    gdrive_key = FLAGS.gdrive_api_key
 
   # Check if the experiment directory already exists.
   model_dir_query = glob.glob(os.path.join(log_dir, experiment_id + "*"))

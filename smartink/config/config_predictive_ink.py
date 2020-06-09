@@ -96,9 +96,10 @@ def define_flags():
                        "number of units for stroke embeddings.")
   flags.DEFINE_bool("use_vae", False, "VAE regularizer on the stroke space.")
   flags.DEFINE_float("kld_weight", 1.0, "VAE KLD loss weight.")
-  flags.DEFINE_float("kld_start", 0.05, "Initial VAE KLD loss weight.")
-  flags.DEFINE_float("kld_increment", 0.99995,
-                     "VAE KLD loss weight increment per step.")
+  flags.DEFINE_float("kld_start", 0.01, "Initial VAE KLD loss weight.")
+  flags.DEFINE_float("kld_increment", 0.0, "VAE KLD loss weight increment per step (0.99995).")
+  flags.DEFINE_string("kld_type", "kld_p0", "kld_p0 or kld_p0_norm.")
+  
   ### Decoder model
   flags.DEFINE_string("decoder_model", "t_emb", "stroke decoder: t_emb or rnn.")
   # t-decoder
@@ -356,18 +357,19 @@ def get_config(FLAGS, experiment_id=None):
       reduce_type=C.R_MEAN_STEP)
   
   ink_loss = AttrDict(pen=pen_, stroke=stroke_, prefix = "reconstruction")
-
+    
   if FLAGS.use_vae:
     ink_loss.embedding_kld = LossConfig(
-        loss_type=C.KLD_STANDARD,
+        loss_type=FLAGS.kld_type,  # C.KLD_STANDARD or C.KLD_STANDARD_NORM
         target_key=None,
         out_key="embedding",
         reduce_type=C.R_MEAN_STEP)
-    
+
     ink_loss.embedding_kld.weight = FLAGS.kld_weight
-    # ink_loss.embedding_kld.weight = dict(
-    #     type="linear_decay",
-    #     values=[FLAGS.kld_start, FLAGS.kld_weight, FLAGS.kld_increment])
+    if FLAGS.kld_increment > 0:
+      ink_loss.embedding_kld.weight = dict(
+          type="linear_decay",
+          values=[FLAGS.kld_start, FLAGS.kld_weight, FLAGS.kld_increment])
     
   if FLAGS.reg_emb_weight > 0:
     ink_loss.embedding_l2 = LossConfig(
@@ -413,11 +415,13 @@ def get_config(FLAGS, experiment_id=None):
   config.loss.apply_reconstructed_ink = FLAGS.loss_reconstructed_ink
 
   try:
-    data_root = os.environ["PREDICTIVE_SKETCHING_DATA_DIR"]
-    log_dir = os.environ["PREDICTIVE_SKETCHING_LOG_DIR"]
-    eval_dir = os.environ["PREDICTIVE_SKETCHING_EVAL_DIR"]
+    data_root = os.environ["COSE_DATA_DIR"]
+    log_dir = os.environ["COSE_LOG_DIR"]
+    eval_dir = os.environ["COSE_EVAL_DIR"]
     gdrive_key = os.environ["GDRIVE_API_KEY"]
   except KeyError:
+    if FLAGS.data_dir is None or FLAGS.eval_dir is None or FLAGS.experiment_dir is None:
+      raise Exception("Either environment variables or FLAGs must be set.")
     data_root = FLAGS.data_dir
     log_dir = FLAGS.experiment_dir
     eval_dir = FLAGS.eval_dir
@@ -466,14 +470,21 @@ def get_config(FLAGS, experiment_id=None):
   return config
 
 
-def restore_config(experiment_id):
+def restore_config(FLAGS, experiment_id):
   try:
-    data_root = os.environ["PREDICTIVE_SKETCHING_DATA_DIR"]
-    log_dir = os.environ["PREDICTIVE_SKETCHING_LOG_DIR"]
-    eval_dir = os.environ["PREDICTIVE_SKETCHING_EVAL_DIR"]
+    data_root = os.environ["COSE_DATA_DIR"]
+    log_dir = os.environ["COSE_LOG_DIR"]
+    eval_dir = os.environ["COSE_EVAL_DIR"]
     gdrive_key = os.environ["GDRIVE_API_KEY"]
   except KeyError:
-    raise Exception("Environment variables are not set.")
+    if FLAGS.data_dir is None or FLAGS.eval_dir is None or FLAGS.experiment_dir is None:
+      raise Exception("Either environment variables or FLAGs must be set.")
+    data_root = FLAGS.data_dir
+    log_dir = FLAGS.experiment_dir
+    eval_dir = FLAGS.eval_dir
+    gdrive_key = FLAGS.gdrive_api_key
+
+  eval_dir = FLAGS.eval_dir
   
   # Check if the experiment directory already exists.
   model_dir_query = glob.glob(os.path.join(log_dir, experiment_id + "*"))
