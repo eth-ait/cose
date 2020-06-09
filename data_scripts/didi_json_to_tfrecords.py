@@ -1,66 +1,31 @@
-from __future__ import division
+"""Data preprocessing script for CoSE model.
 
+Converts .ndjson data into a format CoSE expects and stores in tfrecords.
+A ramer resampled variant of the data (aka sketch-rnn format) can be stored as
+well.
+"""
 import collections
 import contextlib
-import io
 import json
 import os
 import random
-import functools
 import tensorflow as tf
 
 import numpy as np
 from rdp import rdp
 
 # Setup and settings.
+DATA_DIR = None  # TODO: Set this path.
+if DATA_DIR is None and "COSE_DATA_DIR" in os.environ:
+  DATA_DIR = os.path.join(os.environ["COSE_DATA_DIR"], "didi_wo_text/")
+else:
+  raise Exception("Data path must be set")
 
-# Settings
-# JSON_FILES=["diagrams_wo_text_20200131.ndjson", "diagrams_20200131.ndjson"]
-JSON_FILES=["diagrams_wo_text_20200131.ndjson"]
 # JSON_FILES=["full_raw_cat.ndjson"]
-PROJECT_ID = "digital-ink-diagram-data"
-BUCKET_NAME = "digital_ink_diagram_data"
-LOCAL_DATA_DIR = "/local/home/emre/Projects/google/data/didi_ndjson/"
+# JSON_FILES=["full_raw_elephant.ndjson"]
+JSON_FILES=["diagrams_wo_text_20200131.ndjson"]
 NUM_TFRECORD_SHARDS = 10
-# DATA_FORMAT = "sketch_rnn"
-DATA_FORMAT = "didi"
 
-# auth.authenticate_user()
-
-# Creating the service client.
-# gcs_service = build("storage", "v1")
-#
-# Download the data
-# def download_file_from_gcs(filename):
-#   directory_name = os.path.join(LOCAL_DATA_DIR, os.path.dirname(filename))
-#   if not os.path.exists(directory_name):
-#     os.mkdir(directory_name)
-#   with open(os.path.join(LOCAL_DATA_DIR, filename), "wb") as f:
-#     request = gcs_service.objects().get_media(bucket=BUCKET_NAME, object=filename)
-#     media = MediaIoBaseDownload(f, request)
-#
-#     done = False
-#     while not done:
-#       status, done = media.next_chunk()
-#       if not done:
-#         print("Downloading '%s': %-3.0f%%" % (filename, status.progress() * 100))
-#
-# def get_label_file(type, labelid):
-#   file_id = os.path.join(type, "%s.%s" % (labelid, type))
-#   fname = os.path.join(LOCAL_DATA_DIR, file_id)
-#   if os.path.exists(fname):
-#     return fname
-#   download_file_from_gcs(file_id)
-#   return fname
-#
-# for json_file in JSON_FILES:
-#   download_file_from_gcs(json_file)
-#
-#
-# def get_label_file_contents(type, labelid):
-#   get_label_file(type, labelid)
-#   with open(os.path.join(LOCAL_DATA_DIR, type, "%s.%s" %(labelid, type))) as f:
-#     return f.read()
 
 def split_and_pad_strokes(stroke_list):
   max_len = np.array([len(stroke[0]) for stroke in stroke_list]).max()
@@ -128,9 +93,10 @@ def ink_to_tfexample(ink, dot=None):
 
 @contextlib.contextmanager
 def create_tfrecord_writers(output_dir, output_file, num_output_shards):
+  split_file_path_map = dict(train="training", valid="validation", test="test")
   writers = collections.defaultdict(list)
   for split in ["train", "valid", "test"]:
-    output_dir_path = os.path.join(output_dir, split)
+    output_dir_path = os.path.join(output_dir, split_file_path_map[split])
     if not os.path.exists(output_dir_path):
       os.mkdir(output_dir_path)
     for i in range(num_output_shards):
@@ -144,8 +110,10 @@ def create_tfrecord_writers(output_dir, output_file, num_output_shards):
       for w in writers[split]:
         w.close()
 
+
 def pick_output_shard(num_shards):
   return random.randint(0, num_shards - 1)
+
 
 def size_normalization(drawing):
   def get_bounding_box(drawing):
@@ -230,30 +198,38 @@ def didi_preprocess(raw_ink, timestep=20):
   return raw_ink
 
 
-if DATA_FORMAT == "sketch_rnn":
-  preprocessing_fn = functools.partial(sketch_rnn_preprocess, delta=False, rdp_epsilon=2.0)
-elif DATA_FORMAT == "didi":
-  preprocessing_fn = functools.partial(didi_preprocess, timestep=20)
-else:
-  raise Exception()
-
 for json_file in JSON_FILES:
   i = 0
   counts = collections.defaultdict(int)
-  with create_tfrecord_writers(os.path.join(LOCAL_DATA_DIR), json_file.split(".")[0], NUM_TFRECORD_SHARDS) as writers:
-    with open(os.path.join(LOCAL_DATA_DIR, json_file)) as f:
+  with create_tfrecord_writers(os.path.join(DATA_DIR), json_file.split(".")[0], NUM_TFRECORD_SHARDS) as writers:
+    with open(os.path.join(DATA_DIR, json_file)) as f:
       for line in f:
         ink = json.loads(line)
         
+        # Randomly (but in reproducible way) define training,validation and test
+        # splits if the dataset doesn't do it.
+        if "split" not in ink:
+          rng = np.random.RandomState(i)
+          prob = rng.uniform()
+          if prob < 0.75:
+            ink["split"] = "train"  # 75% training.
+          elif prob > 0.9:
+            ink["split"] = "valid"  # 10% validation.
+          else:
+            ink["split"] = "test"  # 15% test.
+        
+        if "key" not in ink:
+          ink["key"] = str(hash(str(ink["drawing"])))
+          ink["label_id"] = ink["key"]
+        
         # Ramer resampling.
         ink["rdp_ink"] = sketch_rnn_preprocess(ink["drawing"], rdp_epsilon=2.0)
-        # Normalize ramer resampled data.
-        # ink["rdp_ink"] = size_normalization(ink["rdp_ink"])
         ink["drawing"] = didi_preprocess(ink["drawing"], timestep=20)
         
         # dot = get_label_file_contents("dot", ink["label_id"])
         dot = None
         example = ink_to_tfexample(ink, dot)
+        
         counts[ink["split"]] += 1
         writers[ink["split"]][pick_output_shard(NUM_TFRECORD_SHARDS)].write(example.SerializeToString())
         
