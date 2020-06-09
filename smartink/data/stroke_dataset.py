@@ -62,7 +62,7 @@ class TFRecordStroke(Dataset):
     
     # Some pre-processing operations spoils the data (such as adding noise).
     # We may want to keep the ground-truth targets intact.
-    # TODO(aksan) this requires some refactoring as it is prone to errors
+    # TODO this requires some refactoring as it is prone to errors
     #  right now. Make sure that tf_data_normalization is modified as well
     #  after using self.gt_targets in a pre-processing operation.
     self.gt_targets = kwargs.get("gt_targets", False)
@@ -527,7 +527,7 @@ class TFRecordStroke(Dataset):
     # Need to scale up for rdp re-sampling. We undo it afterwards.
     xyp = tf.expand_dims(self.tf_rdp_resampling(xyp*3000.0, epsilon=2.0)/3000.0, axis=0)
 
-    # TODO(aksan) Insert a dummy timestamp for now. RDP returns a mask. Use that!
+    # TODO Insert a dummy timestamp for now. RDP returns a mask. Use that!
     xytp = tf.concat([xyp[:, :, 0:2], tf.zeros_like(xyp[:, :, 2:3]), xyp[:, :, 2:3]], axis=-1)
     
     if self.gt_targets:
@@ -960,7 +960,7 @@ class TFRecordBatchDiagram(TFRecordStroke):
     # Converts the data into the format that a model expects.
     # Creates input, target, sequence_length, etc.
     self.tf_data = self.tf_data.map(functools.partial(self.__to_model_batch))
-    # TODO(aksan) configurable bucket_batch_size
+    # TODO configurable bucket_batch_size
     if self.batch_size >= 1:
       bucket_batch_size = [
           self.batch_size,
@@ -1382,7 +1382,7 @@ class TFRecordSingleDiagram(TFRecordStroke):
     model_input[C.INP_NUM_STROKE] = tf.shape(input=tf_sample_dict["stroke_length"])
     # model_input["xy_cov"] = tf_sample_dict["xy_cov"]
 
-    # TODO(aksan) Use dummy input for now.
+    # TODO Use dummy input for now.
     num_strokes = tf.shape(input=tf_sample_dict["ink"])[0]
     model_input[C.INP_T] = tf.zeros((num_strokes, 1))
     model_input[C.TARGET_T_INK] = tf.zeros((num_strokes, 3))
@@ -1396,7 +1396,7 @@ class TFRecordSingleDiagram(TFRecordStroke):
     model_target[C.INP_NUM_STROKE] = tf.shape(input=tf_sample_dict["stroke_length"])
     # model_target["xy_cov"] = tf_sample_dict["xy_cov"]
     
-    # TODO(aksan) Use dummy target for now.
+    # TODO Use dummy target for now.
     model_target[C.TARGET_T_INK] = tf.zeros((num_strokes, 3))
     model_target[C.TARGET_T_STROKE] = tf.zeros((num_strokes, 2))
     model_target[C.TARGET_T_PEN] = tf.zeros((num_strokes, 1))

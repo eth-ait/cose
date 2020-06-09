@@ -74,7 +74,7 @@ class TrainingEngine(object):
 
     print("Model created.")
 
-    # # TODO(aksan) Pre-trained stroke: not optimizing the stroke model.
+    # # TODO Pre-trained stroke: not optimizing the stroke model.
     # # Renaming variables for restoring from a trained model.
     # var_list = dict()
     # var_name_to = "t_embedding"
@@ -89,7 +89,7 @@ class TrainingEngine(object):
     with tf.control_dependencies(update_ops):
       parameters = tf.compat.v1.trainable_variables()
       
-      # # TODO(aksan) Pre-trained stroke: not optimizing the stroke model.
+      # # TODO Pre-trained stroke: not optimizing the stroke model.
       # parameters = []
       # for param in tf.trainable_variables():
       #   if param not in self.model.embedding_model.variables:
@@ -171,7 +171,7 @@ class TrainingEngine(object):
     else:
       self.saver.export_meta_graph(os.path.join(self.model_dir, "meta_graph"))
       
-    # # TODO(aksan) Pre-trained stroke:
+    # # TODO Pre-trained stroke:
     # # Restore the stroke model.
     # embedding_model_dir = '/home/eaksan/Warehouse/Projects/google/experiments/1578672834.1-TEMB_biTR_64_6x256-head_4-drop_0.0-L16-3x512-binormal-B100_LR0.001-diagrams_with_strokes_wo_text_resampled20'
     #

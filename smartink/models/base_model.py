@@ -214,7 +214,7 @@ class BaseModel(tf.keras.Model):
 
     Returns:
     """
-    # TODO(eaksan) Looks like dark magic. Is there a clearer solution?
+    # TODO Looks like dark magic. Is there a clearer solution?
     seq_len_indices = tf.maximum(
         tf.tile(tf.expand_dims(seq_len - 1, -1), (1, feature_size)), 0)
 

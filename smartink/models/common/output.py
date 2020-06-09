@@ -234,7 +234,7 @@ class OutputModelNormal2D(OutputModelNormal):
     if greedy:
       return outputs[self.prefix + C.MU]
 
-    # TODO(aksan) Ignoring rho for tf sampling.
+    # TODO Ignoring rho for tf sampling.
     sigma = outputs[self.prefix + C.SIGMA]
     if self.logvar:
       # Calculate sigma (i.e., std) from log-variance.
@@ -255,7 +255,7 @@ class OutputModelNormal2D(OutputModelNormal):
     if greedy:
       return outputs[self.prefix + C.MU]
 
-    # TODO(aksan) Ignoring rho for tf sampling.
+    # TODO Ignoring rho for tf sampling.
     sigma = outputs[self.prefix + C.SIGMA]
     if self.logvar:
       # Calculate sigma (i.e., std) from log-variance.

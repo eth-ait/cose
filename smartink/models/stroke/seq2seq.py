@@ -166,7 +166,7 @@ class InkSeq2Seq(BaseModel):
       self.decoder_state_nn = None
 
     # Variables for static mode. They are assigned in call method.
-    # TODO(eaksan) We can get rid of them if autoregressive sampling is no
+    # TODO We can get rid of them if autoregressive sampling is no
     #  longer required in static (graph) mode.
     self.op_encoder_inputs = None
     self.op_decoder_inputs = None

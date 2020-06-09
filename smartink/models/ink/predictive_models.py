@@ -288,7 +288,7 @@ class PredictiveInkModel(BaseModel):
     #                                                    training=training)
     #   predicted_ink["embedding"] = pred_emb_sample
     #
-    #   # TODO(aksan) Need to pass those to select targets.
+    #   # TODO Need to pass those to select targets.
     #   predicted_ink["shape_0"] = n_strokes
     #   predicted_ink["shape_1"] = seq_len
     #   predicted_ink["gather_target_idx"] = gather_target_idx
@@ -490,7 +490,7 @@ class PredictiveInkModel(BaseModel):
     ### Skip evaluating the decoded strokes if not using a sequence decoder.
     # if False:
     #   # Prediction of the next sequence by using the predicted stroke.
-    #   # TODO(aksan) Manually editing targets for reconstruction from the predicted embeddings.
+    #   # TODO Manually editing targets for reconstruction from the predicted embeddings.
     #   gather_target_idx = predictions["predicted_ink"]["gather_target_idx"]
     #   n_strokes = predictions["predicted_ink"]["shape_0"]
     #   seq_len = predictions["predicted_ink"]["shape_1"]

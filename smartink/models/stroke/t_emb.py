@@ -150,7 +150,7 @@ class TEmbedding(BaseModel):
           bias_regularizer=self.kernel_regularizer)
 
     # Variables for static mode. They are assigned in call method.
-    # TODO(eaksan) We can get rid of them if autoregressive sampling is no
+    # TODO We can get rid of them if autoregressive sampling is no
     #  longer required in static (graph) mode.
     self.op_encoder_inputs = None
     self.op_input_seq_len = None
@@ -347,7 +347,7 @@ class TEmbedding(BaseModel):
 
     embedding_inp = tf.reshape(
         tf.tile(tf.expand_dims(embedding, 1), [1, max_len, 1]), (-1, n_latent))
-    # TODO(aksan) TF compatible? Only works in eager mode right now.
+    # TODO TF compatible? Only works in eager mode right now.
     t_vals = []
     for sid in range(len(seq_len)):
       t_ = tf.expand_dims(tf.linspace(0.0, 1.0, seq_len[sid]), axis=1)

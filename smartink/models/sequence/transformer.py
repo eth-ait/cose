@@ -56,7 +56,7 @@ def create_padding_mask(seq, seq_len=None):
 
 
 def create_look_ahead_mask(size):
-  # TODO(aksan) tf.linalg.band_part is not supported by TensorflowJS.
+  # TODO tf.linalg.band_part is not supported by TensorflowJS.
   # mask = 1 - tf.linalg.band_part(tf.ones((size, size)), -1, 0)
 
   row_idx = tf.tile(tf.range(size)[:, tf.newaxis], [1, size])

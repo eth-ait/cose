@@ -38,7 +38,7 @@ class CheckpointEvaluatorHook(tf.estimator.CheckpointSaverListener):
   When training ends, the best checkpoint is renamed into the original name
   format and the extra checkpoints are deleted.
 
-  TODO(eaksan) It only keeps the best checkpoint (max_to_keep = 1)
+  TODO It only keeps the best checkpoint (max_to_keep = 1)
   """
 
   def __init__(self, eval_func, glogger, save_path):
