@@ -13,12 +13,15 @@ from MulticoreTSNE import MulticoreTSNE as TSNE
 # from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
+import matplotlib
 import matplotlib.pyplot as plt
-# plt.style.use('ggplot')
 
 import tensorflow as tf
 import tensorflow_probability as tfp
 from smartink.config.configuration import Configuration
+
+# plt.style.use('ggplot')
+matplotlib.use('Agg')
 
 
 gpu = tf.config.experimental.list_physical_devices('GPU')[0]
@@ -53,12 +56,14 @@ def tsne_2d(gt, pred, plot_name=None, c_kmeans=10, norm_kmeans=True):
   if pred is not None:
     gt_2d = all_2d[:gt.shape[0]]
     pred_2d = all_2d[-pred.shape[0]:]
-    plt.scatter(gt_2d[:, 0], gt_2d[:, 1], s=2, c="xkcd:yellow orange")
-    plt.scatter(pred_2d[:, 0], pred_2d[:, 1], s=2, c="xkcd:marine blue")
-    plt.legend(("Ground-truth embeddings", "Predicted embeddings"), fontsize=6)
+    plt.scatter(gt_2d[:, 0], gt_2d[:, 1], s=2, c="xkcd:marine blue", alpha=0.8)
+    plt.scatter(pred_2d[:, 0], pred_2d[:, 1], s=2, c="xkcd:yellow orange", alpha=0.2)
+    # plt.legend((" embeddings", "Predicted embeddings"), fontsize=6)
+    plt.axis('off')
   else:
     plt.scatter(all_2d[:, 0], all_2d[:, 1], s=2, c="xkcd:yellow orange")
-    plt.legend("Ground-truth embeddings", fontsize=6)
+    # plt.legend("Ground-truth embeddings", fontsize=6)
+    plt.axis('off')
     gt_2d = all_2d
     pred_2d = None
     
@@ -68,7 +73,9 @@ def tsne_2d(gt, pred, plot_name=None, c_kmeans=10, norm_kmeans=True):
   
   # K-means clustering
   kmeans = KMeans(n_clusters=c_kmeans, random_state=0).fit(gt)
-  plt.scatter(gt_2d[:, 0], gt_2d[:, 1], c=kmeans.labels_, s=2)
+  colormap = "tab10"
+  plt.scatter(gt_2d[:, 0], gt_2d[:, 1], c=kmeans.labels_, s=2, cmap=colormap)
+  plt.axis('off')
   if plot_name is not None:
     plt.savefig("{}_kmeans{}_tsne{}.png".format(plot_name, c_kmeans, perplexity), bbox_inches='tight', dpi=200)
   plt.close()
@@ -78,7 +85,8 @@ def tsne_2d(gt, pred, plot_name=None, c_kmeans=10, norm_kmeans=True):
     norms = np.linalg.norm(gt, axis=1)
     normalized_gt = gt/norms[:, np.newaxis]
     kmeans = KMeans(n_clusters=c_kmeans, random_state=0).fit(normalized_gt)
-    plt.scatter(gt_2d[:, 0], gt_2d[:, 1], c=kmeans.labels_, s=2)
+    plt.scatter(gt_2d[:, 0], gt_2d[:, 1], c=kmeans.labels_, s=2, cmap=colormap)
+    plt.axis('off')
     if plot_name is not None:
       plt.savefig("{}_norm_kmeans{}_tsne{}.png".format(plot_name, c_kmeans, perplexity), bbox_inches='tight', dpi=200)
     plt.close()
@@ -94,12 +102,17 @@ def pca_2d(gt, pred, plot_name=None, c_kmeans=15, norm_kmeans=True):
   
   if pred is not None:
     pred_2d = gt_PCA.transform(pred)
-    plt.scatter(gt_2d[:, 0], gt_2d[:, 1], s=2, c="xkcd:yellow orange")
-    plt.scatter(pred_2d[:, 0], pred_2d[:, 1], s=2, c="xkcd:marine blue")
-    plt.legend(("Ground-truth embeddings", "Predicted embeddings"), fontsize=6)
+    plt.scatter(gt_2d[:, 0], gt_2d[:, 1], s=2, c="xkcd:marine blue", alpha=0.8)
+    # plt.scatter(gt_2d[:, 0], gt_2d[:, 1], s=2, cmap="Pastel2", alpha=0.4)
+    
+    plt.scatter(pred_2d[:, 0], pred_2d[:, 1], s=2, c="xkcd:yellow orange", alpha=0.2)
+    # plt.scatter(pred_2d[:, 0], pred_2d[:, 1], s=2, cmap="Pastel2", alpha=0.8)
+    # plt.legend(("Ground-truth embeddings", "Predicted embeddings"), fontsize=6)
+    plt.axis('off')
   else:
     plt.scatter(gt_2d[:, 0], gt_2d[:, 1], s=2, c="xkcd:yellow orange")
-    plt.legend("Ground-truth embeddings", fontsize=6)
+    # plt.legend("Ground-truth embeddings", fontsize=6)
+    plt.axis('off')
     pred_2d = None
   
   if plot_name is not None:
@@ -108,7 +121,10 @@ def pca_2d(gt, pred, plot_name=None, c_kmeans=15, norm_kmeans=True):
   
   # K-means clustering
   kmeans = KMeans(n_clusters=c_kmeans, random_state=0).fit(gt)
-  plt.scatter(gt_2d[:, 0], gt_2d[:, 1], c=kmeans.labels_, s=2)
+  # colormap = matplotlib.cm.Dark2.colors
+  colormap = "tab10"
+  plt.scatter(gt_2d[:, 0], gt_2d[:, 1], c=kmeans.labels_, s=2, cmap=colormap)
+  plt.axis('off')
   if plot_name is not None:
     plt.savefig("{}_kmeans{}_pca.png".format(plot_name, c_kmeans), bbox_inches='tight', dpi=200)
   plt.close()
@@ -118,7 +134,8 @@ def pca_2d(gt, pred, plot_name=None, c_kmeans=15, norm_kmeans=True):
     norms = np.linalg.norm(gt, axis=1)
     normalized_gt = gt/norms[:, np.newaxis]
     kmeans = KMeans(n_clusters=c_kmeans, random_state=0).fit(normalized_gt)
-    plt.scatter(gt_2d[:, 0], gt_2d[:, 1], c=kmeans.labels_, s=2)
+    plt.scatter(gt_2d[:, 0], gt_2d[:, 1], c=kmeans.labels_, s=2, cmap=colormap)
+    plt.axis('off')
     if plot_name is not None:
       plt.savefig("{}_norm_kmeans{}_pca.png".format(plot_name, c_kmeans), bbox_inches='tight', dpi=200)
     plt.close()
@@ -170,8 +187,8 @@ def main():
         predicted_embeddings = np.load(os.path.join(eval_dir, "test_best_predicted_embeddings.npy"))
       
       # predicted_embeddings = None
-      gt_2d_tsne, pred_2d_tsne = tsne_2d(gt_embeddings, predicted_embeddings, os.path.join(eval_dir, "gt_emb"), c_kmeans=10, norm_kmeans=True)
-      gt_2d_pca, pred_2d_pca = pca_2d(gt_embeddings, predicted_embeddings, os.path.join(eval_dir, "gt_emb"), c_kmeans=10, norm_kmeans=True)
+      gt_2d_tsne, pred_2d_tsne = tsne_2d(gt_embeddings, predicted_embeddings, os.path.join(eval_dir, "gt_emb"), c_kmeans=10, norm_kmeans=False)
+      gt_2d_pca, pred_2d_pca = pca_2d(gt_embeddings, predicted_embeddings, os.path.join(eval_dir, "gt_emb"), c_kmeans=10, norm_kmeans=False)
 
       # Fit multivariate normal and compare.
       if predicted_embeddings is not None:
