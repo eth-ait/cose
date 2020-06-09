@@ -17,10 +17,6 @@ from google.oauth2 import service_account
 
 class GoogleSheetLogger(object):
   """Log selected outputs to a predefined Google Sheet.
-
-  2019 - Modified by Emre.
-  2019 - Updated by Wookie.
-  2018 - Initialized by Emre.
   """
 
   def __init__(self, credential_file, workbook_key, sheet_names,
