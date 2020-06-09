@@ -11,6 +11,9 @@ import matplotlib
 from matplotlib import animation
 matplotlib.use("agg")
 import matplotlib.pyplot as plt  # pylint: disable=g-import-not-at-top
+from matplotlib import cm
+import matplotlib.collections as mcoll
+import matplotlib as mpl
 import numpy as np
 
 import tensorflow as tf
@@ -116,7 +119,7 @@ def animate_strokes(strokes, x_borders=None, y_borders=None, colors=None):
   return anim, fig
 
 
-def render_strokes(strokes, x_borders=None, y_borders=None, colors=None, marker_size=0):
+def render_strokes(strokes, x_borders=None, y_borders=None, colors=None, marker_size=0, fig=None, ax=None, alpha=1.0, highlight_start=False):
   """Render all strokes at once.
 
   Args:
@@ -128,7 +131,11 @@ def render_strokes(strokes, x_borders=None, y_borders=None, colors=None, marker_
 
   Returns:
   """
-  all_strokes = np.concatenate(strokes, axis=0)
+  if len(strokes) > 1:
+    all_strokes = np.concatenate(strokes, axis=0)
+  else:
+    all_strokes = strokes[0]
+
   if all_strokes.shape[0] == 0:
     return None
 
@@ -161,24 +168,58 @@ def render_strokes(strokes, x_borders=None, y_borders=None, colors=None, marker_
   else:
     x_size = max((x_range / (y_range + x_range)) * max_size, base_size)
     y_size = max((y_range / (y_range + x_range)) * max_size, base_size)
-
-  fig, ax = plt.subplots(figsize=(x_size, y_size))
+  
+  if fig is None:
+    fig, ax = plt.subplots(figsize=(x_size, y_size))
+    
   # plt.close()
   plt.axis("tight")
+  plt.axis('off')
   ax.set_xlim(x_borders)
   ax.set_ylim(y_borders)
-  # ax.set_facecolor((1.0, 1.0, 1.0))
 
   # Points with pen-up event (i.e., stroke[:, 2] == 1) indicates the end of
   # the stroke.
   for i, stroke in enumerate(strokes):
-    color = colors[i] if colors is not None else None
+    color = colors[i] if colors is not None else mpl.cm.tab20.colors[i%20]
     if marker_size > 0:
       # ax.plot(stroke[:-1, 0], stroke[:-1, 1], lw=2, color=color, marker='o', markersize=marker_size)
-      ax.plot(stroke[:, 0], stroke[:, 1], lw=2, color=color, marker='o', markersize=marker_size)
+      ax.plot(stroke[:, 0], stroke[:, 1], lw=3, color=color, marker='o', markersize=marker_size)
     else:
-      # ax.plot(stroke[:-1, 0], stroke[:-1, 1], lw=2, color=color)
-      ax.plot(stroke[:, 0], stroke[:, 1], lw=2, color=color)
+      plt_stroke=ax.plot(stroke[:-1, 0], stroke[:-1, 1], lw=3, color=color, alpha=alpha)
+      
+      if highlight_start:
+        plt.plot(stroke[0, 0], stroke[0, 1], 'ro', lw=3, markersize=12, color=color)
+        mean_pos = stroke.mean(0)
+        text_x = mean_pos[0]
+        text_y = mean_pos[1]
+        on_stroke = np.any(np.linalg.norm(stroke[:, 0:2] - mean_pos[np.newaxis, :2], axis=1) < 0.05)
+        if on_stroke:
+          mean_pos = stroke[:stroke.shape[0] // 3].mean(0)
+          text_x = mean_pos[0]
+          text_y = mean_pos[1]
+          text_x -= (text_y - stroke[0, 1]) / 2.0
+          text_y -= (text_x - stroke[0, 0]) / 2.0
+        ax.text(text_x, text_y, str(i + 1), fontsize=25, ha='center', va='center', color=plt_stroke[0].get_color())
+
+  # def make_segments(x, y):
+  #   """
+  #   Create list of line segments from x and y coordinates, in the correct format
+  #   for LineCollection: an array of the form numlines x (points per line) x 2 (x
+  #   and y) array
+  #   """
+  #
+  #   points = np.array([x, y]).T.reshape(-1, 1, 2)
+  #   segments = np.concatenate([points[:-1], points[1:]], axis=1)
+  #   return segments
+  #
+  # cm_subsection = np.linspace(0, 1.0, all_strokes.shape[0])
+  # segments = np.concatenate([make_segments(stroke[:, 0], stroke[:, 1]) for stroke in strokes], axis=0)
+  # lc = mcoll.LineCollection(segments, array=cm_subsection, cmap=plt.get_cmap('cool'), norm=plt.Normalize(0.0, 1.0),
+  #                           linewidth=2, alpha=1)
+  # ax = plt.gca()
+  # ax.add_collection(lc)
+  
   return fig, ax
 
 
@@ -212,7 +253,7 @@ class InkVisualizer(object):
     """
     stroke_sample = np.concatenate([sample["stroke"], sample["pen"]], axis=-1)
     stroke_sample = self.undo_preprocessing(stroke_sample,
-                                            sample["start_coord"],
+                                            sample.get("start_coord", None),
                                             sample["seq_len"])[0]
     stroke_sample[:, :, 1] = -1 * stroke_sample[:, :, 1]
     save_path = os.path.join(self.log_dir, "")
