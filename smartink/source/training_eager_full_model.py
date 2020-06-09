@@ -45,6 +45,7 @@ class TrainingEngine(object):
     self.step = tf.Variable(0, name="global_step", trainable=False)
     self.epoch = tf.Variable(0, name="global_epoch", trainable=False)
     self.model.set_step(self.step)
+    self.model.embedding_model.set_step(self.step)
     
     # self.optimizer.iterations
 

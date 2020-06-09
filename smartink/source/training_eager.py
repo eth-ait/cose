@@ -194,7 +194,10 @@ class TrainingEngine(object):
 
       # Early stopping check.
       # valid_loss = eval_loss_dict["loss"]
-      valid_loss = eval_loss_dict["reconstruction_stroke"]
+      if "reconstruction_stroke" in eval_loss_dict:
+        valid_loss = eval_loss_dict["reconstruction_stroke"]
+      else:
+        valid_loss = eval_loss_dict["stroke"]
       valid_loss += eval_loss_dict.get("reconstruction_embedding_kld", 0.0)
       
       if (best_valid_loss - valid_loss) > np.abs(

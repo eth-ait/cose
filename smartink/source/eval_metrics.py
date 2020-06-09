@@ -1,5 +1,5 @@
 import numpy as np
-import tensorflow as tf
+# import tensorflow as tf
 
 from common.constants import Constants as C
 from smartink.loss.chamfer import chamfer_distance_np_var_len
@@ -60,7 +60,8 @@ class MetricEngine(object):
 
   @classmethod
   def euclidean(cls, targets, predictions):
-    return [tf.reduce_sum(input_tensor=tf.sqrt(tf.reduce_sum(input_tensor=tf.square(gt - pred), axis=1))).numpy() for gt, pred in zip(targets, predictions)]
+    # return [tf.reduce_sum(input_tensor=tf.sqrt(tf.reduce_sum(input_tensor=tf.square(gt - pred), axis=1))).numpy() for gt, pred in zip(targets, predictions)]
+    raise Exception("Numpy implementation missing.")
     
   @classmethod
   def chamfer(cls, targets, predictions):

@@ -542,6 +542,12 @@ class TFRecordStroke(Dataset):
   
   def pp_temporal_resampling(self, sample):
     """Uniform re-sampling over time dimension."""
+    print("Temporal resampling factor: ".format(self.resampling_factor))
+    if self.gt_targets:
+      print("Temporal resampling with original targets...")
+    else:
+      print("Temporal resampling the targets...")
+    
     pen = sample["ink"][:, -1:]
     factor = tf.cast(
         tf.cond(pred=tf.reduce_max(sample["stroke_length"]) < 20,

@@ -344,7 +344,8 @@ class InkSeq2Seq(BaseModel):
   def decode_sequence(self,
                       embedding,
                       seq_len,
-                      decoder_input=None):
+                      decoder_input=None,
+                      decoder_state=None):
   
     max_steps = tf.reduce_max(input_tensor=seq_len)
     
@@ -367,9 +368,12 @@ class InkSeq2Seq(BaseModel):
     
     state_t = RNNUtils.get_initial_states_layer(self.decoder_rnn,
                                                 embedding)
-    if self.dynamic_h0:
-      decoder_state = self.decoder_state_nn(embedding[:, 0])
-      state_t[0] = tf.split(decoder_state, 2, axis=-1)
+    if decoder_state is None:
+      if  self.dynamic_h0:
+        decoder_state = self.decoder_state_nn(embedding[:, 0])
+        state_t[0] = tf.split(decoder_state, 2, axis=-1)
+    else:
+      state_t[0] = decoder_state
     
     stop_signal = False
     step = 1

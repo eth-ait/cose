@@ -46,7 +46,11 @@ class TFRecordInkSequence(TFRecordStroke):
         normalize=normalize,
         run_mode=run_mode,
         **kwargs)
-
+  
+  def get_next(self):
+    return self.iterator.get_next()
+    # return inputs, targets
+  
   def tf_data_transformations(self):
     """Loads the raw data and apply preprocessing.
 
@@ -95,6 +99,115 @@ class TFRecordInkSequence(TFRecordStroke):
     return is_long_enough
 
 
+class TFRecordSketchRNN(TFRecordInkSequence):
+  """Creates batches of ink sequences.
+
+  TFRecords store ink samples of shape (n_strokes, padded_stroke_length, 4).
+  First, convert it into a sequence of points (1, n_points, 4) and then create
+  variable-length batches.
+  """
+  
+  def __init__(self,
+               data_path,
+               meta_data_path,
+               batch_size=1,
+               pp_to_origin=True,
+               pp_relative_pos=False,
+               shuffle=False,
+               normalize=False,
+               run_mode=C.RUN_ESTIMATOR,
+               **kwargs):
+    
+    self.eos_point = tf.convert_to_tensor([[[0, 0, 0, 0, 1]]], dtype=tf.float32)
+    
+    super(TFRecordSketchRNN, self).__init__(
+        data_path,
+        meta_data_path,
+        batch_size=batch_size,
+        pp_to_origin=pp_to_origin,
+        pp_relative_pos=pp_relative_pos,
+        shuffle=shuffle,
+        normalize=normalize,
+        run_mode=run_mode,
+        **kwargs)
+    
+  
+  def tf_data_transformations(self):
+    """Loads the raw data and apply preprocessing.
+
+    This method is also used in calculation of the dataset statistics
+    (i.e., meta-data file).
+    """
+    super(TFRecordSketchRNN, self).tf_data_transformations()
+  
+  def to_stroke5(self, sample):
+    """Discards the padded entries and concatenates individual strokes."""
+    xy_ = sample["ink"][:, :, 0:2]
+    pen_up = sample["ink"][:, :, 3:4]
+    pen_down = 1 - pen_up
+    eos = tf.zeros_like(pen_up)
+    
+    stroke5 = tf.concat([xy_, pen_down, pen_up, eos], axis=2)
+    stroke5 = tf.concat([stroke5, self.eos_point], axis=1)
+    sample["ink"] = stroke5
+    sample["stroke_length"] += 1
+    return sample
+
+  def tf_data_to_model(self):
+    # Converts the data into the format that a model expects.
+
+    self.tf_data = self.tf_data.map(
+        functools.partial(self.to_stroke5),
+        num_parallel_calls=self.num_parallel_calls)
+    
+    # Creates input, target, sequence_length, etc.
+    self.tf_data = self.tf_data.map(functools.partial(self.__to_model_batch))
+    # self.tf_data = self.tf_data.padded_batch(batch_size=self.batch_size,
+                                             # padding_values=self.eos_point)
+    def element_length_func(model_inputs, _):
+      return tf.cast(model_inputs[C.INP_SEQ_LEN], tf.int32)
+    
+    self.tf_data = self.tf_data.apply(
+        tf.data.experimental.bucket_by_sequence_length(
+            element_length_func=element_length_func,
+            bucket_batch_sizes=[self.batch_size]*3,
+            bucket_boundaries=[80, 180],
+            pad_to_bucket_boundary=False))
+    self.tf_data = self.tf_data.prefetch(2)
+
+  def __to_model_batch(self, tf_sample_dict):
+    """Transforms a TFRecord sample into a more general sample representation.
+
+    We use global keys to represent the required fields by the models.
+    Args:
+      tf_sample_dict:
+
+    Returns:
+    """
+    # Targets are the inputs shifted by one step.
+    # We ignore the timestamp and pen event.
+    ink_ = tf_sample_dict["ink"][0]
+    model_input = dict()
+    model_input[C.INP_SEQ_LEN] = tf_sample_dict["stroke_length"]
+    model_input[C.INP_ENC] = ink_
+    model_input[C.INP_DEC] = tf.concat([tf.zeros_like(ink_[0:1]), ink_[0:-1]], axis=0)
+  
+    model_input[C.INP_START_COORD] = tf_sample_dict[C.INP_START_COORD][0]
+    model_input[C.INP_END_COORD] = tf_sample_dict[C.INP_END_COORD][0]
+    model_input[C.INP_NUM_STROKE] = tf_sample_dict["num_strokes"]
+  
+    model_target = dict()
+    model_target["stroke_5"] = ink_
+    model_target["stroke"] = tf_sample_dict["ink"][0, :, 0:2]
+    model_target["pen"] = tf_sample_dict["ink"][0, :, 3:4]
+    model_target[C.BATCH_SEQ_LEN] = tf_sample_dict["stroke_length"]
+    
+    model_target[C.INP_START_COORD] = tf_sample_dict[C.INP_START_COORD][0]
+    model_target[C.INP_END_COORD] = tf_sample_dict[C.INP_END_COORD][0]
+    model_target[C.INP_NUM_STROKE] = tf_sample_dict["num_strokes"]
+    return model_input, model_target
+  
+
 if __name__ == "__main__":
   config = tf.compat.v1.ConfigProto()
   config.gpu_options.allow_growth = True
@@ -109,10 +222,10 @@ if __name__ == "__main__":
   META_FILE = "didi_wo_text-stats-origin_abs_pos.npy"
   data_path_ = [os.path.join(DATA_DIR, SPLIT, tfrecord_pattern)]
   
-  train_data = TFRecordInkSequence(
+  train_data = TFRecordSketchRNN(
       data_path=data_path_,
       meta_data_path=DATA_DIR + META_FILE,
-      batch_size=1,
+      batch_size=2,
       shuffle=False,
       normalize=True,
       pp_to_origin=True,

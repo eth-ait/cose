@@ -235,8 +235,8 @@ class TEmbedding(BaseModel):
     embedding = tf.reshape(tiled, [-1, self.n_latent_units])
     
     if self.t_frequency_channels > 0:
-      # decoder_inputs = self.frequency_encoding(decoder_inputs, self.t_frequency_channels)
-      decoder_inputs = self.frequency_encoding_emb(decoder_inputs, embedding, self.t_frequency_channels)
+      decoder_inputs = self.frequency_encoding(decoder_inputs, self.t_frequency_channels)
+      # decoder_inputs = self.frequency_encoding_emb(decoder_inputs, embedding, self.t_frequency_channels)
 
     decoder_inp = tf.concat([decoder_inputs, embedding], axis=-1)
     # Running decoder.

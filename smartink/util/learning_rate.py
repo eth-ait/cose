@@ -112,8 +112,7 @@ class SketchRnnDecay(tf.keras.optimizers.schedules.LearningRateSchedule):
   
   def __call__(self, step):
     float_global_step = tf.cast(step, tf.float32)
-    return (
-                 self.initial_lr - self.min_learning_rate)*self.decay_rate**float_global_step + self.min_learning_rate
+    return (self.initial_learning_rate - self.min_learning_rate)*self.decay_rate**float_global_step + self.min_learning_rate
   
   def get_config(self):
     return {

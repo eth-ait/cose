@@ -148,7 +148,21 @@ class Constants(object):
             "data_tfrecord_fname": "diagrams_wo_text_20200131-?????-of-?????",
             "position"           : "didi_wo_text-stats-origin_abs_pos.npy",
             "velocity"           : "didi_wo_text-stats-relative_pos.npy",
-            "rdp_position": "didi_wo_text_rdp-stats-origin_abs_pos.npy",
-            "rdp_velocity": "didi_wo_text_rdp-stats-relative_pos.npy"
+            "rdp_position"       : "didi_wo_text_rdp-stats-origin_abs_pos.npy",
+            "rdp_velocity"       : "didi_wo_text_rdp-stats-relative_pos.npy"
+            },
+      
+      "quickdraw_cats":
+        {
+            "data_tfrecord_fname": "full_raw_cat-?????-of-?????",
+            "position"           : "full_raw_cat-stats-origin_abs_pos.npy",
+            "velocity"           : "full_raw_cat-stats-relative_pos.npy"
+            },
+      
+      "quickdraw_elephant":
+        {
+            "data_tfrecord_fname": "full_raw_elephant-?????-of-?????",
+            "position"           : "full_raw_elephant-stats-origin_abs_pos.npy",
+            "velocity"           : "full_raw_elephant-stats-relative_pos.npy"
             },
       }
