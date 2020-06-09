@@ -23,9 +23,10 @@ from smartink.loss.nll import log_likelihood
 from visualization.visualization import render_strokes
 from visualization.visualization import get_min_max
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.pylab as pl
-from matplotlib.colors import ListedColormap
+import matplotlib.colors as colors
 from sklearn.cluster import SpectralClustering, KMeans
 from sklearn import metrics
 
@@ -61,7 +62,13 @@ class EvalEngine(object):
     self.model = self.embedding_model if predictive_model is None else predictive_model
     self.gt_len_decoding = True  # Whether to use GT sequence length.
     self.decoded_length = 50  # 40 mean sequence-length
+    
+    # Rendering options. Mostly cosmetics.
     self.save_video = False
+    self.render_initial_point = False
+    self.render_position_heatmap = False
+    self.render_binary_colors = False  # Black context, red prediction.
+    self.prediction_color = "#c3090aff"  # Prediction color (red).
     
     self.embedding_analysis = True
     self.reconstruction_analysis = True
@@ -355,12 +362,10 @@ class EvalEngine(object):
     loss_dict, eval_step = eval_loss_summary.summary_and_reset()
     
     if self.reconstruction_analysis:
-      print("[RC] Avg stroke CF dist: ", loss_dict["rc_chamfer_stroke"])
-      print("[RC] Avg diagram CF dist: ", loss_dict["rc_chamfer_diagram"])
-  
-      if "rc_l2_stroke" in loss_dict:
-        print("[RC] Avg stroke L2 dist: ", loss_dict["rc_l2_stroke"])
-        print("[RC] Avg diagram L2 dist: ", loss_dict["rc_l2_diagram"])
+      print("[Stroke Reconstruction] Avg stroke reconstruction CF dist: {:.4f}".format(loss_dict["rc_chamfer_stroke"]))
+
+    if self.prediction_analysis and self.predictive_model is not None:
+      print("[Stroke Prediction] Avg stroke prediction CF dist: {:.4f}".format(loss_dict["pred_chamfer_stroke"]))
     
     # Plot loss statistics.
     if self.loss_plots and self.reconstruction_analysis:
@@ -511,7 +516,6 @@ class EvalEngine(object):
       target_batch = dict_tf_to_numpy(target_batch)
       n_strokes = target_batch["num_strokes"][0]
       self.vis_engine.vis_stroke(target_batch, save_name="{}_gt".format(idx))
-      # self.vis_engine.vis_ink_sequence(target_batch, save_name="{}_gt".format(idx))
 
       # Get stroke embeddings.
       forward_pass = self.embedding_model(inputs=input_batch, training=False)
@@ -526,25 +530,22 @@ class EvalEngine(object):
       
       decoded_batch[C.INP_START_COORD] = target_batch["start_coord"]
       self.vis_engine.vis_stroke(decoded_batch, save_name="{}_decoded_original_len".format(idx))
-      # self.vis_engine.vis_ink_sequence(decoded_batch, save_name="{}_decoded_original_len".format(idx))
 
       gt_strokes = padded_to_stroke_list(dict_tf_to_numpy(target_batch),
                                          self.dataset.np_undo_preprocessing)
       # Log per sample loss: chamfer distance on the reconstructed strokes.
-      # Not applicable if we are not using the ground-truth sequence length.
-      if self.gt_len_decoding or not self.gt_len_decoding:
-        recon_strokes = padded_to_stroke_list(dict_tf_to_numpy(decoded_batch),
-                                              self.dataset.np_undo_preprocessing)
-        
-        res_stroke = self.metrics.eval(gt_strokes, recon_strokes, return_all=False)
-        losses["{}_stroke".format(idx)] = res_stroke[C.METRIC_CHAMFER]
-  
-        ### (2) Euclidean and Chamfer distances on the reconstructed diagram.
-        gt_diagram = np.vstack(gt_strokes)
-        recon_diagram = np.vstack(recon_strokes)
-        res_diag = self.metrics.eval([gt_diagram], [recon_diagram],
-                                     return_all=False)
-        losses["{}_diagram".format(idx)] = res_diag[C.METRIC_CHAMFER]
+      recon_strokes = padded_to_stroke_list(dict_tf_to_numpy(decoded_batch),
+                                            self.dataset.np_undo_preprocessing)
+      
+      res_stroke = self.metrics.eval(gt_strokes, recon_strokes, return_all=False)
+      losses["{}_stroke".format(idx)] = res_stroke[C.METRIC_CHAMFER]
+
+      ### (2) Euclidean and Chamfer distances on the reconstructed diagram.
+      gt_diagram = np.vstack(gt_strokes)
+      recon_diagram = np.vstack(recon_strokes)
+      res_diag = self.metrics.eval([gt_diagram], [recon_diagram],
+                                   return_all=False)
+      losses["{}_diagram".format(idx)] = res_diag[C.METRIC_CHAMFER]
       
       ### Evaluate the predictive model.
       if self.predictive_model is None:
@@ -565,11 +566,11 @@ class EvalEngine(object):
       # # (4) Predict the next stroke given only the strokes so far.
       # self.__predict_ordered(input_batch, target_batch, embeddings, idx, plot_x=(x_min, x_max), plot_y=(y_min, y_max))
 
-      # (5) Auto-regressive prediction with random embeddings.
-      self.__predict_ar(input_batch, target_batch, embeddings, idx)
-
-      # (6) Auto-regressive prediction with the best embedding.
-      self.__predict_ar_best_embedding(input_batch, target_batch, embeddings, idx)
+      # # (5) Auto-regressive prediction with random embeddings.
+      # self.__predict_ar(input_batch, target_batch, embeddings, idx)
+      
+      # # (6) Auto-regressive prediction with the best embedding.
+      # self.__predict_ar_best_embedding(input_batch, target_batch, embeddings, idx)
 
       # (7) Predict the next stroke given a predefined set of strokes.
       # self.__predict_random(input_batch, target_batch, embeddings, idx)
@@ -577,6 +578,7 @@ class EvalEngine(object):
       # (8) Predict the next stroke given a predefined set of strokes.
       if self.model.position_model is not None:
         self.__predict_position_ar(input_batch, target_batch, embeddings, idx)
+        # self.__predict_position_ar_alternatives(input_batch, target_batch, embeddings, idx)
 
     elapsed_time = (time.perf_counter() - start_time) / len(sample_ids)
     print("Elapsed time per sample: {:.4f}".format(elapsed_time))
@@ -605,9 +607,9 @@ class EvalEngine(object):
                                                              seq_len=seq_len)
       predicted_batch[C.INP_START_COORD] = target_batch["start_coord"]
 
-      colors = ["k"]*n_strokes
-      colors[stroke_i] = "r"
-      self.vis_engine.vis_stroke(predicted_batch, save_name="{}_predicted_loo_s{}".format(sample_idx, str(stroke_i)), colors=colors)
+      stroke_colors = ["k"]*n_strokes
+      stroke_colors[stroke_i] = "r"
+      self.vis_engine.vis_stroke(predicted_batch, save_name="{}_predicted_loo_s{}".format(sample_idx, str(stroke_i)), colors=stroke_colors)
     
   def __predict_ordered(self, input_batch, target_batch, embeddings, sample_idx, plot_x=None, plot_y=None):
     # Predict the next stroke given only the strokes so far.
@@ -630,9 +632,9 @@ class EvalEngine(object):
                                                              seq_len=seq_len)
       predicted_batch[C.INP_START_COORD] = target_batch["start_coord"][:stroke_i + 1]
       
-      colors = ["k"]*(stroke_i + 1)
-      colors[stroke_i] = "r"
-      self.vis_engine.vis_stroke(predicted_batch, save_name="{}_predicted_ordered_s{}".format(sample_idx, str(stroke_i)), colors=colors, x_borders=plot_x, y_borders=plot_y)
+      stroke_colors = ["k"]*(stroke_i + 1)
+      stroke_colors[stroke_i] = "r"
+      self.vis_engine.vis_stroke(predicted_batch, save_name="{}_predicted_ordered_s{}".format(sample_idx, str(stroke_i)), colors=stroke_colors, x_borders=plot_x, y_borders=plot_y)
       
   def __predict_ar(self, input_batch, target_batch, embeddings, sample_idx):
     """Predict the next embedding randomly and decode.
@@ -665,18 +667,18 @@ class EvalEngine(object):
                                                         seq_len=seq_len)
       predicted_batch[C.INP_START_COORD] = target_batch["start_coord"][:stroke_i+1]
 
-      colors = ["k"]*(stroke_i + 1)
-      colors[stroke_i] = "r"
-      self.vis_engine.vis_stroke(predicted_batch, save_name="{}_ar_predicted_ordered_s{}".format(sample_idx, str(stroke_i)), colors=colors)
+      stroke_colors = ["k"]*(stroke_i + 1)
+      stroke_colors[stroke_i] = "r"
+      self.vis_engine.vis_stroke(predicted_batch, save_name="{}_ar_predicted_ordered_s{}".format(sample_idx, str(stroke_i)), colors=stroke_colors)
     
     # Animate AR predictions.
-    colors = ["r"]*(stroke_i + 1)
+    stroke_colors = ["r"]*(stroke_i + 1)
     for i in range(context_ids):
-      colors[i] = "k"
+      stroke_colors[i] = "k"
       
     if self.save_video:
       self.vis_engine.animate = True
-      self.vis_engine.vis_stroke(predicted_batch, save_name="{}_ar_predicted_ordered_animation_s{}".format(sample_idx, str(stroke_i)), colors=colors)
+      self.vis_engine.vis_stroke(predicted_batch, save_name="{}_ar_predicted_ordered_animation_s{}".format(sample_idx, str(stroke_i)), colors=stroke_colors)
       self.vis_engine.animate = False
       
   def __predict_ar_best_embedding(self, input_batch, target_batch, embeddings, sample_idx):
@@ -729,18 +731,18 @@ class EvalEngine(object):
                                                         seq_len=seq_len)
       predicted_batch[C.INP_START_COORD] = target_batch["start_coord"][:stroke_i+1]
 
-      colors = ["k"]*(stroke_i + 1)
-      colors[stroke_i] = "r"
-      self.vis_engine.vis_stroke(predicted_batch, save_name="{}_best_ar_predicted_ordered_s{}".format(sample_idx, str(stroke_i)), colors=colors)
+      stroke_colors = ["k"]*(stroke_i + 1)
+      stroke_colors[stroke_i] = "r"
+      self.vis_engine.vis_stroke(predicted_batch, save_name="{}_best_ar_predicted_ordered_s{}".format(sample_idx, str(stroke_i)), colors=stroke_colors)
     
     # Animate AR predictions.
-    colors = ["r"]*(stroke_i + 1)
+    stroke_colors = ["r"]*(stroke_i + 1)
     for i in range(n_given_strokes):
-      colors[i] = "k"
+      stroke_colors[i] = "k"
       
     if self.save_video:
       self.vis_engine.animate = True
-      self.vis_engine.vis_stroke(predicted_batch, save_name="{}_best_ar_predicted_ordered_animation_s{}".format(sample_idx, str(stroke_i)), colors=colors)
+      self.vis_engine.vis_stroke(predicted_batch, save_name="{}_best_ar_predicted_ordered_animation_s{}".format(sample_idx, str(stroke_i)), colors=stroke_colors)
       self.vis_engine.animate = False
 
   def __predict_random(self, input_batch, target_batch, embeddings, sample_idx):
@@ -779,12 +781,12 @@ class EvalEngine(object):
                                                              seq_len=seq_len)
       predicted_batch[C.INP_START_COORD] = target_batch["start_coord"][input_sidx]
       
-      colors = ["k"]*(pred_n_strokes + 1)
-      colors[-1] = "r"
+      stroke_colors = ["k"]*(pred_n_strokes + 1)
+      stroke_colors[-1] = "r"
       given = str(sorted(input_indices))[1:-1].replace(", ", "_")
       self.vis_engine.vis_stroke(predicted_batch,
                                  save_name="{}_predicted_{}_given_{}".format(sample_idx, target_idx, given),
-                                 colors=colors)
+                                 colors=stroke_colors)
       
   def __predict_position_ar(self, input_batch, target_batch, embeddings, sample_idx):
     # Set plot limits by using the ground-truth canvas.
@@ -794,27 +796,19 @@ class EvalEngine(object):
     x_min, x_max = get_min_max(all_strokes[:, 0], 0.3)
     y_min, y_max = get_min_max(all_strokes[:, 1], 0.3)
     v_min, v_max = None, None
-  
-    n_bins = 100
-    x, y = np.meshgrid(np.linspace(x_min - 0.5, x_max + 0.5, n_bins),
-                       np.linspace(-y_max - 0.5, -y_min + 0.5, n_bins))
-  
-    xy = np.empty(x.shape + (2,))
-    xy[:, :, 0] = x
-    xy[:, :, 1] = y
-    xy = np.reshape(xy, [-1, 2]).astype(np.float32)
     
     # Auto-regressive prediction.
     n_strokes = target_batch["num_strokes"][0]
-    if n_strokes < 10:
-      n_strokes += 2
+    n_strokes += 5
     context_ids = 2
     context_embeddings = embeddings[:, :context_ids]
     start_positions = np.transpose(target_batch[C.INP_START_COORD], [1, 0, 2])
     end_positions = np.transpose(target_batch[C.INP_END_COORD], [1, 0, 2])
     
-    ar_start_pos = [start_positions[:, 0:1], start_positions[:, 1:2]]
-    ar_end_pos = [end_positions[:, 0:1], end_positions[:, 1:2]]
+    # ar_start_pos = [start_positions[:, 0:1], start_positions[:, 1:2]]
+    # ar_end_pos = [end_positions[:, 0:1], end_positions[:, 1:2]]
+    ar_start_pos = np.split(start_positions[:, 0:context_ids], context_ids, axis=1)
+    ar_end_pos = np.split(end_positions[:, 0:context_ids], context_ids, axis=1)
     for stroke_i in range(context_ids, n_strokes):
       input_pos = np.concatenate(ar_start_pos[:stroke_i], axis=1)
 
@@ -848,56 +842,223 @@ class EvalEngine(object):
       predicted_batch = self.embedding_model.decode_sequence(emb_,
                                                              seq_len=seq_len)
       predicted_batch[C.INP_START_COORD] = np.transpose(np.concatenate(ar_start_pos[:stroke_i+1], axis=1), [1,0,2])
-      
-      colors = ["k"]*(stroke_i + 1)
-      colors[stroke_i] = "b"
+
+      stoke_colors = None
+      if self.render_binary_colors:
+        stoke_colors = ["k"]*(stroke_i + 1)
+        stoke_colors[stroke_i] = self.prediction_color
       
       ### Plot heatmap
       # Render strokes.
       predicted_strokes = padded_to_stroke_list(dict_tf_to_numpy(predicted_batch),
                                                 self.dataset.np_undo_preprocessing)
-      fig, ax = render_strokes(predicted_strokes, colors=colors, x_borders=(x_min, x_max), y_borders=(y_min, y_max))
-      
-      ar_end_pos.append(predicted_strokes[-1][-1][:2][np.newaxis, np.newaxis])
-      
-      # Calculate position densities.
-      logli = log_likelihood(xy, pos_)
-      probs = np.reshape(logli.numpy(), [n_bins, n_bins])
 
-      probs_normalized = np.exp(probs)/np.exp(probs).sum()
-      probs = probs_normalized
+      all_pred_strokes = np.concatenate(predicted_strokes, axis=0)
+      pred_x_min, pred_x_max = get_min_max(all_pred_strokes[:, 0], 0.3)
+      pred_y_min, pred_y_max = get_min_max(all_pred_strokes[:, 1], 0.3)
       
-      # Customize the colormap by adding some alpha.
-      cmap = pl.cm.OrRd
-      my_cmap = cmap(np.arange(cmap.N))
-      my_cmap[:, -1] = np.linspace(0, 0.8, cmap.N)  # Set alpha
-      my_cmap = ListedColormap(my_cmap)        # Create new colormap
-
-      # v_min = v_min if v_min else probs.min() / 3.
-      # v_max = v_max if v_max else probs.max() * 1.5
-      v_min = 0.0
-      v_max = probs.max()*1.5
+      x_min = min(x_min, pred_x_min)
+      x_max = max(x_max, pred_x_max)
+      y_min = min(y_min, pred_y_min)
+      y_max = max(y_max, pred_y_max)
+      fig, ax = render_strokes(predicted_strokes, colors=stoke_colors, x_borders=(x_min, x_max), y_borders=(y_min, y_max), highlight_start=self.render_initial_point)
       
-      plt.contourf(x, -y, probs, cmap=my_cmap, vmin=v_min, vmax=v_max)
-      plt.plot(target_pos[0, 0, 0], -target_pos[0, 0, 1], 'ro', color="k")
-      plt.colorbar()
+      if self.render_position_heatmap:
+        n_bins = 100
+        x, y = np.meshgrid(np.linspace(x_min - 0.5, x_max + 0.5, n_bins),
+                           np.linspace(-y_max - 0.5, -y_min + 0.5, n_bins))
+  
+        xy = np.empty(x.shape + (2,))
+        xy[:, :, 0] = x
+        xy[:, :, 1] = y
+        xy = np.reshape(xy, [-1, 2]).astype(np.float32)
+  
+        ar_end_pos.append(predicted_strokes[-1][-1][:2][np.newaxis, np.newaxis])
+  
+        # Calculate position densities.
+        logli = log_likelihood(xy, pos_)
+        probs = np.reshape(logli.numpy(), [n_bins, n_bins])
+  
+        probs_normalized = np.exp(probs)/np.exp(probs).sum()
+        probs = probs_normalized
+  
+        # Customize the colormap by adding some alpha.
+        cmap = pl.cm.OrRd
+        my_cmap = cmap(np.arange(cmap.N))
+        my_cmap[:, -1] = np.linspace(0, 0.8, cmap.N)  # Set alpha
+        my_cmap = colors.ListedColormap(my_cmap)        # Create new colormap
+  
+        plt.contourf(x, -y, probs, cmap=my_cmap, vmin=v_min, vmax=v_max)
+        plt.plot(target_pos[0, 0, 0], -target_pos[0, 0, 1], 'ro', lw=3, markersize=8, color=next_stroke_color)
+        # plt.colorbar()
+        # pos_str = "{:.2f}, {:.2f}".format(target_pos[0, 0, 0], -target_pos[0, 0, 1])
+        # ax.text(target_pos[0, 0, 0], -target_pos[0, 0, 1], pos_str, fontsize=20, ha='center', va='center', color='k') # plt_stroke[0].get_color())
+  
       fig.savefig(os.path.join(self.vis_engine.log_dir, "{}_pos_ar_heatmap_ordered_s{}.png".format(sample_idx, str(stroke_i))), format="png", bbox_inches='tight', dpi=200)
+      fig.savefig(os.path.join(self.vis_engine.log_dir, "{}_pos_ar_heatmap_ordered_s{}.svg".format(sample_idx, str(stroke_i))), format="svg", bbox_inches='tight', dpi=200)
       plt.close()
 
-      # import matplotlib.colors as mpl_colors
-      # pcm = ax.pcolormesh(x, -y, probs,
-      #                        norm=mpl_colors.Normalize(vmin=v_min, vmax=v_max),
-      #                        cmap=my_cmap)
-      # fig.colorbar(pcm, ax=ax)
-      # fig.savefig(os.path.join(self.vis_engine.log_dir, "{}_pos_ar_heatmap_ordered_s{}.png".format(sample_idx, str(stroke_i))), format="png", bbox_inches='tight', dpi=200)
-      # plt.close()
-
-    # Animate AR predictions.
-    colors = ["r"]*(stroke_i + 1)
-    for i in range(context_ids):
-      colors[i] = "k"
-
     if self.save_video:
+      # Animate AR predictions.
+      stroke_colors = [self.prediction_color]*(stroke_i + 1)
+      for i in range(context_ids):
+        stroke_colors[i] = "k"
+      
       self.vis_engine.animate = True
-      self.vis_engine.vis_stroke(predicted_batch, save_name="{}_pos_ar_predicted_ordered_animation_s{}".format(sample_idx, str(stroke_i)), colors=colors)
+      self.vis_engine.vis_stroke(predicted_batch, save_name="{}_pos_ar_predicted_ordered_animation_s{}".format(sample_idx, str(stroke_i)), colors=stroke_colors)
       self.vis_engine.animate = False
+      
+      
+  def __predict_position_ar_alternatives(self, input_batch, target_batch, embeddings, sample_idx):
+    # Set plot limits by using the ground-truth canvas.
+    gt_strokes = padded_to_stroke_list(dict_tf_to_numpy(target_batch), self.dataset.np_undo_preprocessing)
+    all_strokes = np.concatenate(gt_strokes, axis=0)
+    x_min, x_max = get_min_max(all_strokes[:, 0], 0.3)
+    y_min, y_max = get_min_max(all_strokes[:, 1], 0.3)
+    v_min, v_max = None, None
+    # x_min, x_max, y_min, y_max = [-0.25, 1.0, -1.25, 0.25]  # sample 64
+    x_min, x_max, y_min, y_max = [-0.5, 1.5, -1.5, 0.25]  # sample 2
+  
+    n_bins = 100
+    x, y = np.meshgrid(np.linspace(x_min - 0.5, x_max + 0.5, n_bins),
+                       np.linspace(-y_max - 0.5, -y_min + 0.5, n_bins))
+  
+    xy = np.empty(x.shape + (2,))
+    xy[:, :, 0] = x
+    xy[:, :, 1] = y
+    xy = np.reshape(xy, [-1, 2]).astype(np.float32)
+    
+    # Auto-regressive prediction.
+    n_strokes = target_batch["num_strokes"][0]
+    n_strokes += 4
+    context_ids = 1
+    context_embeddings = embeddings[:, :context_ids]
+    start_positions = np.transpose(target_batch[C.INP_START_COORD], [1, 0, 2])
+    
+    ar_start_pos = np.split(start_positions[:, 0:context_ids], context_ids, axis=1)
+    for stroke_i in range(context_ids, n_strokes):
+      input_pos = np.concatenate(ar_start_pos[:stroke_i], axis=1)
+      
+      pos_ = self.model.predict_position_ar(context_embeddings,
+                                            inp_pos=input_pos,
+                                            greedy=False)
+
+      all_pos_samples, all_pi = self.model.position_model.output_layer.draw_sample_every_component(pos_, greedy=True)
+      best_pos_id = np.argsort(all_pi.numpy()[0, 0])[-1]
+      second_best_pos_id = np.argsort(all_pi.numpy()[0, 0])[-2]
+      
+      best_pos = all_pos_samples[:, :, best_pos_id].numpy()
+      second_best_pos = all_pos_samples[:, :, second_best_pos_id].numpy()
+      
+      def get_best_two_embedding(context_embeddings, input_pos, target_pos):
+        out_ = self.model.predict_embedding_ar(context_embeddings,
+                                               inp_pos=input_pos,
+                                               target_pos=target_pos,
+                                               greedy=False)
+        
+        all_emb_samples, all_emb_pi = self.model.predictive_model.output_layer.draw_sample_every_component(out_, greedy=True)
+        sorted_indices = np.argsort(all_emb_pi.numpy()[0, 0])
+        best_emb_id = sorted_indices[-1]
+        second_best_emb_id = sorted_indices[-2]
+        third_best_emb_id = sorted_indices[-3]
+        fourth_best_emb_id = sorted_indices[-4]
+        fifth_best_emb_id = sorted_indices[-5]
+        
+        best_emb = all_emb_samples[:, :, best_emb_id]#.numpy()
+        second_best_emb = all_emb_samples[:, :, second_best_emb_id]#.numpy()
+        third_best_emb = all_emb_samples[:, :, third_best_emb_id]#.numpy()
+        fourth_best_emb = all_emb_samples[:, :, fourth_best_emb_id]#.numpy()
+        fifth_best_emb = all_emb_samples[:, :, fifth_best_emb_id]#.numpy()
+        return best_emb, second_best_emb, third_best_emb, fourth_best_emb, fifth_best_emb
+      
+      
+      def decode_and_plot(current_embeddings, decoding_seq_len_, start_pos_, plot_name, fig=None, ax=None, alpha=1.0, next_stroke_color="#c3090aff", draw_heatmap=True):
+        emb_ = current_embeddings[0].numpy()
+        predicted_batch = self.embedding_model.decode_sequence(emb_,
+                                                               seq_len=decoding_seq_len_)
+        predicted_batch[C.INP_START_COORD] = np.transpose(np.concatenate(start_pos_, axis=1), [1,0,2])
+        
+        ### Plot heatmap
+        # Render strokes.
+        predicted_strokes = padded_to_stroke_list(dict_tf_to_numpy(predicted_batch),
+                                                  self.dataset.np_undo_preprocessing)
+        
+        n_plot_strokes = len(start_pos_)
+        stroke_colors = ["k"]*n_plot_strokes
+        # colors[stroke_i] = "b"
+        stroke_colors[n_plot_strokes-1] = next_stroke_color
+        fig, ax = render_strokes(predicted_strokes, colors=stroke_colors, x_borders=(x_min, x_max), y_borders=(y_min, y_max), fig=fig, ax=ax, alpha=alpha)
+        
+        # Calculate position densities.
+        if draw_heatmap:
+          logli = log_likelihood(xy, pos_)
+          probs = np.reshape(logli.numpy(), [n_bins, n_bins])
+    
+          probs_normalized = np.exp(probs)/np.exp(probs).sum()
+          probs = probs_normalized
+          
+          # Customize the colormap by adding some alpha.
+          cmap = pl.cm.OrRd
+          my_cmap = cmap(np.arange(cmap.N))
+          my_cmap[:, -1] = np.linspace(0, 0.8, cmap.N)  # Set alpha
+          my_cmap = colors.ListedColormap(my_cmap)        # Create new colormap
+    
+          plt.contourf(x, -y, probs, cmap=my_cmap, vmin=v_min, vmax=v_max)
+          plt.plot(start_pos_[-1][0,0,0], -start_pos_[-1][0,0,1], 'ro', lw=3, markersize=8, color=next_stroke_color)
+        
+        # pos_str = "{:.2f}, {:.2f}".format(target_pos[0, 0, 0], -target_pos[0, 0, 1])
+        # ax.text(target_pos[0, 0, 0], -target_pos[0, 0, 1], pos_str, fontsize=20, ha='center', va='center', color='k') # plt_stroke[0].get_color())
+        
+        # plt.colorbar()
+        fig.savefig(os.path.join(self.vis_engine.log_dir, (plot_name + ".png").format(sample_idx, str(stroke_i))), format="png", bbox_inches='tight', dpi=200)
+        fig.savefig(os.path.join(self.vis_engine.log_dir, (plot_name + ".svg").format(sample_idx, str(stroke_i))), format="svg", bbox_inches='tight', dpi=200)
+        return fig, ax
+
+      # b_plot_name = "{}_pos_ar_heatmap_ordered_s{}_best_pos"
+      # sb_plot_name = "{}_pos_ar_heatmap_ordered_s{}_second_best_pos"
+      # decoding_seq_len_ = np.array([self.decoded_length]*(stroke_i + 1))
+      # # start_pos_ = ar_start_pos[:stroke_i + 1]
+      #
+      # best_ar_start_pos = ar_start_pos.copy()
+      # best_ar_start_pos.append(best_pos)
+      # emb_with_best_pos, second_emb_with_best_pos = get_best_two_embedding(context_embeddings, input_pos, best_pos)
+      # b_context_embeddings = tf.concat([context_embeddings, emb_with_best_pos], axis=1)
+      # fig_, ax_ = decode_and_plot(b_context_embeddings, decoding_seq_len_, best_ar_start_pos, b_plot_name)
+      #
+      # # second_best_ar_start_pos = ar_start_pos.copy()
+      # # second_best_ar_start_pos.append(second_best_pos)
+      # second_best_ar_start_pos = [second_best_pos]
+      # emb_with_second_best_pos, _ = get_best_two_embedding(context_embeddings, input_pos, second_best_pos)
+      # # sb_context_embeddings = tf.concat([context_embeddings, emb_with_second_best_pos], axis=1)
+      # sb_context_embeddings = emb_with_second_best_pos
+      # fig_, ax_ = decode_and_plot(sb_context_embeddings, [self.decoded_length], second_best_ar_start_pos, sb_plot_name, fig=fig_, ax=ax_, alpha=0.5, next_stroke_color="dimgray")
+      #
+      # plt.close()
+      
+      
+      b_plot_name = "{}_pos_ar_s{}_best_emb_"
+      # sb_plot_name = "{}_pos_ar_s{}_second_best_em"
+      best_emb_ar_start_pos = ar_start_pos.copy()
+      best_emb_ar_start_pos.append(best_pos)
+      decoding_seq_len_ = np.array([self.decoded_length]*(stroke_i + 1))
+
+      fig_, ax_ = None, None
+      draw_heatmap = True
+      best_embeddings = get_best_two_embedding(context_embeddings, input_pos, best_pos)
+      for idx, embedding in enumerate(best_embeddings):
+        # emb_with_best_pos, second_emb_with_best_pos = get_best_two_embedding(context_embeddings, input_pos, best_pos)
+        b_emb_context_embeddings = tf.concat([context_embeddings, embedding], axis=1)
+        fig_, ax_ = decode_and_plot(b_emb_context_embeddings, decoding_seq_len_, best_emb_ar_start_pos, b_plot_name + str(idx), fig=fig_, ax=ax_, next_stroke_color=mpl.cm.tab20.colors[idx%20], draw_heatmap=draw_heatmap)
+        draw_heatmap = False
+      plt.close()
+
+      context_embeddings = tf.concat([context_embeddings, best_embeddings[0]], axis=1)
+      ar_start_pos = best_emb_ar_start_pos
+
+      # # sb_context_embeddings = tf.concat([context_embeddings, emb_with_second_best_pos], axis=1)
+      # sb_context_embeddings = second_emb_with_best_pos
+      # fig_, ax_ = decode_and_plot(sb_context_embeddings, [self.decoded_length], [best_pos], sb_plot_name, fig=fig_, ax=ax_, alpha=0.5, next_stroke_color="dimgray")
+      #
+      # plt.close()
+      # context_embeddings = b_context_embeddings
+      # ar_start_pos = best_ar_start_pos
