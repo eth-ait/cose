@@ -476,7 +476,14 @@ class OutputModelGMMDense(tf.keras.Model):
                 sigma=sigma,
                 pi=pi)
     
-  def draw_sample(self, outputs, greedy=False, greedy_mu=True):
+  def draw_sample(self, outputs, greedy=False, greedy_mu=True, temp=0.5):
+    def adjust_temp(pi_pdf, temp):
+      pi_pdf = tf.math.log(pi_pdf)/temp
+      pi_pdf -= tf.reduce_max(pi_pdf, axis=-1)
+      pi_pdf = tf.math.exp(pi_pdf)
+      pi_pdf /= tf.reduce_sum(pi_pdf, axis=-1)
+      return pi_pdf
+    
     is_2d = True
     if len(outputs[self.prefix + C.MU]._shape_as_list()) == 3:
       is_2d = False
@@ -492,17 +499,14 @@ class OutputModelGMMDense(tf.keras.Model):
     mu = tf.transpose(a=mu, perm=[0, 1, 3, 2])
     sigma = tf.transpose(a=sigma, perm=[0, 1, 3, 2])
 
-    # Select the most likely mixture component.
     probs = tf.reshape(pi, (-1, self.num_components))
-    logits = tf.math.log(probs) + 1.0
-
-    # topk = tf.math.top_k(probs, k=3, sorted=True)
-    # component_indices = topk.indices[:, 1:2]
-    
     if greedy:
+      logits = tf.math.log(probs) + 1.0
       component_indices = tf.reshape(
           tf.argmax(input=logits, axis=1), (batch_size, seq_len))
     else:
+      probs = adjust_temp(probs, temp)
+      logits = tf.math.log(probs) + 1.0
       component_indices = tf.reshape(
           tf.random.categorical(logits, 1), (batch_size, seq_len))
     batch_indices = tf.range(batch_size)
@@ -513,8 +517,7 @@ class OutputModelGMMDense(tf.keras.Model):
         tf.transpose(a=idx_grid[0]),
         tf.transpose(a=idx_grid[1]),
         tf.cast(component_indices, tf.int32)
-    ],
-                          axis=-1)
+    ], axis=-1)
     component_mu = tf.gather_nd(mu, gather_idx)
     component_sigma = tf.gather_nd(sigma, gather_idx)
 
@@ -522,7 +525,7 @@ class OutputModelGMMDense(tf.keras.Model):
       sample=component_mu
     else:
       sample=tf.random.normal(
-          tf.shape(input=component_mu), component_mu, component_sigma)
+          tf.shape(input=component_mu), component_mu, component_sigma*temp*temp)
     # sample = component_mu
     if is_2d:
       return sample[:, 0]

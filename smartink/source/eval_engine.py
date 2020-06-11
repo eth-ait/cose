@@ -889,7 +889,7 @@ class EvalEngine(object):
         my_cmap = colors.ListedColormap(my_cmap)        # Create new colormap
   
         plt.contourf(x, -y, probs, cmap=my_cmap, vmin=v_min, vmax=v_max)
-        plt.plot(target_pos[0, 0, 0], -target_pos[0, 0, 1], 'ro', lw=3, markersize=8, color=next_stroke_color)
+        plt.plot(target_pos[0, 0, 0], -target_pos[0, 0, 1], 'ro', lw=3, markersize=8, color=self.prediction_color)
         # plt.colorbar()
         # pos_str = "{:.2f}, {:.2f}".format(target_pos[0, 0, 0], -target_pos[0, 0, 1])
         # ax.text(target_pos[0, 0, 0], -target_pos[0, 0, 1], pos_str, fontsize=20, ha='center', va='center', color='k') # plt_stroke[0].get_color())
