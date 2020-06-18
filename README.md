@@ -41,4 +41,4 @@ python eval.py --model_ids <UNIQUE_ID> --qualitative --quantitative --embedding_
 where `UNIQUE_ID` is the same as above.
 
 ### Pre-trained Models
-You can download our main model from TODO and run evaluation script as explained above. 
+You can download [our main model](https://drive.google.com/drive/folders/1C6m7dbXaL4wn5Z4-K7ZniqoZaNTiQBdP?usp=sharing) and run evaluation script as explained above.  

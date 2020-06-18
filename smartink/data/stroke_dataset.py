@@ -1443,30 +1443,30 @@ if __name__ == "__main__":
       rdp_didi_pp=False,
       )
 
-  # train_data = TFRecordBatchDiagram(
-  #     data_path=data_path_,
-  #     meta_data_path=DATA_DIR + META_FILE,
-  #     batch_size=2,
-  #     shuffle=True,
-  #     normalize=False,
-  #     pp_to_origin=False,
-  #     pp_relative_pos=False,
-  #     run_mode=C.RUN_EAGER,
-  #     max_length_threshold=201,
-  #     fixed_len=False,
-  #     mask_pen=False,
-  #
-  #     affine_prob=0,
-  #     reverse_prob=0,
-  #     scale_factor=0,
-  #     resampling_factor=0,
-  #     gt_targets=True,
-  #     n_t_targets=4,
-  #     concat_t_inputs=False,
-  #     t_drop_ratio = 0,
-  #     min_length_threshold = 1,
-  #     rdp=True,
-  #     )
+  train_data = TFRecordBatchDiagram(
+      data_path=data_path_,
+      meta_data_path=DATA_DIR + META_FILE,
+      batch_size=2,
+      shuffle=True,
+      normalize=False,
+      pp_to_origin=False,
+      pp_relative_pos=False,
+      run_mode=C.RUN_EAGER,
+      max_length_threshold=201,
+      fixed_len=False,
+      mask_pen=False,
+
+      affine_prob=0,
+      reverse_prob=0,
+      scale_factor=0,
+      resampling_factor=0,
+      gt_targets=True,
+      n_t_targets=4,
+      concat_t_inputs=False,
+      t_drop_ratio = 0,
+      min_length_threshold = 1,
+      rdp=True,
+      )
 
   from visualization.visualization import InkVisualizer
   from smartink.util.utils import dict_tf_to_numpy
