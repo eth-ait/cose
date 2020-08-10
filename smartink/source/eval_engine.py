@@ -62,6 +62,7 @@ class EvalEngine(object):
     self.model = self.embedding_model if predictive_model is None else predictive_model
     self.gt_len_decoding = True  # Whether to use GT sequence length.
     self.decoded_length = 50  # 40 mean sequence-length
+    self.emb_greedy = False
     
     # Rendering options. Mostly cosmetics.
     self.save_video = False
@@ -470,7 +471,7 @@ class EvalEngine(object):
         decoded stroke dict with outputs of shape(n_components*batch_size, 3)
         embedding GMM pi values of shape (batch_size, n_components)
     """
-    tmp = self.model.predictive_model.output_layer.draw_sample_every_component(pred_embeddings, greedy=True)
+    tmp = self.model.predictive_model.output_layer.draw_sample_every_component(pred_embeddings, greedy=self.emb_greedy)
     emb_samples = tmp[0][:, 0, :, :]
     emb_pis = tmp[1][:, 0, :].numpy()
     n_components = emb_pis.shape[1]
@@ -655,7 +656,7 @@ class EvalEngine(object):
       out_ = self.model.predict_embedding_ar(context_embeddings,
                                             inp_pos=context_pos[:, :stroke_i],
                                             target_pos=start_positions[:, stroke_i:stroke_i + 1],
-                                            greedy=False)
+                                            greedy=self.emb_greedy)
       context_embeddings = tf.concat([context_embeddings, tf.expand_dims(out_["embedding_sample"], axis=0)], axis=1)
       emb_ = context_embeddings[0].numpy()
 
@@ -719,7 +720,7 @@ class EvalEngine(object):
       min_chamfer = np.min(all_comp_chamfer, axis=1)
       min_comp_id = np.argmin(all_comp_chamfer, axis=1)
 
-      embedding_sample, _ = self.model.predictive_model.output_layer.draw_sample_from_nth(pred_emb, n=min_comp_id[0], greedy=True)
+      embedding_sample, _ = self.model.predictive_model.output_layer.draw_sample_from_nth(pred_emb, n=min_comp_id[0], greedy=self.emb_greedy)
       context_embeddings = tf.concat([context_embeddings, embedding_sample], axis=1)
       emb_ = context_embeddings[0].numpy()
 
@@ -818,7 +819,7 @@ class EvalEngine(object):
       
       pos_ = self.model.predict_position_ar(context_embeddings,
                                             inp_pos=input_pos,
-                                            greedy=True)
+                                            greedy=self.emb_greedy)
 
       # logli = log_likelihood(xy, pos_).numpy()
       # max_pos = xy[np.where(logli >= logli.max())[0]]
@@ -829,7 +830,7 @@ class EvalEngine(object):
       out_ = self.model.predict_embedding_ar(context_embeddings,
                                              inp_pos=input_pos,
                                              target_pos=target_pos,
-                                             greedy=True)
+                                             greedy=self.emb_greedy)
       
       context_embeddings = tf.concat([context_embeddings, tf.expand_dims(out_["embedding_sample"], axis=0)], axis=1)
       emb_ = context_embeddings[0].numpy()
@@ -941,9 +942,9 @@ class EvalEngine(object):
       
       pos_ = self.model.predict_position_ar(context_embeddings,
                                             inp_pos=input_pos,
-                                            greedy=False)
+                                            greedy=self.emb_greedy)
 
-      all_pos_samples, all_pi = self.model.position_model.output_layer.draw_sample_every_component(pos_, greedy=True)
+      all_pos_samples, all_pi = self.model.position_model.output_layer.draw_sample_every_component(pos_, greedy=self.emb_greedy)
       best_pos_id = np.argsort(all_pi.numpy()[0, 0])[-1]
       second_best_pos_id = np.argsort(all_pi.numpy()[0, 0])[-2]
       
@@ -954,9 +955,9 @@ class EvalEngine(object):
         out_ = self.model.predict_embedding_ar(context_embeddings,
                                                inp_pos=input_pos,
                                                target_pos=target_pos,
-                                               greedy=False)
+                                               greedy=self.emb_greedy)
         
-        all_emb_samples, all_emb_pi = self.model.predictive_model.output_layer.draw_sample_every_component(out_, greedy=True)
+        all_emb_samples, all_emb_pi = self.model.predictive_model.output_layer.draw_sample_every_component(out_, greedy=self.emb_greedy)
         sorted_indices = np.argsort(all_emb_pi.numpy()[0, 0])
         best_emb_id = sorted_indices[-1]
         second_best_emb_id = sorted_indices[-2]

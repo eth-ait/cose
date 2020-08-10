@@ -165,4 +165,10 @@ class Constants(object):
             "position"           : "full_raw_elephant-stats-origin_abs_pos.npy",
             "velocity"           : "full_raw_elephant-stats-relative_pos.npy"
             },
+      "iamondb":
+        {
+            "data_tfrecord_fname": "iamondb-?????-of-?????",
+            "position"           : "iamondb-stats-origin_abs_pos.npy",
+            "velocity"           : "iamondb-stats-relative_pos.npy"
+            },
       }

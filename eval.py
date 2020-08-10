@@ -98,6 +98,8 @@ def main(argv):
         sample_ids = [2, 3, 5, 9, 10, 17, 29, 30, 49, 100, 150, 200]
       elif config.data.data_name == "quickdraw_elephant":
         sample_ids = [12, 23, 52, 75, 78, 80, 90, 100, 110]
+      elif config.data.data_name == "iamondb":
+        sample_ids = [1, 2, 3, 4, 5]
       else:
         raise Exception("Dataset {} not recognized.".format(config.data.data_name))
       
