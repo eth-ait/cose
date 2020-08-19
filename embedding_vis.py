@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 import tensorflow_probability as tfp
 from smartink.config.configuration import Configuration
+import smartink.loss.chamfer as chamfer
 
 # plt.style.use('ggplot')
 matplotlib.use('Agg')
@@ -143,6 +144,18 @@ def pca_2d(gt, pred, plot_name=None, c_kmeans=15, norm_kmeans=True):
   return gt_2d, pred_2d
 
 
+def calculate_dist_distance(dist1, dist2):
+  all_dist = np.vstack([dist1, dist1])
+  min_val = all_dist.min()
+  max_val = all_dist.max()
+  dist1_norm = (dist1 - min_val) / (max_val-min_val)
+  dist2_norm = (dist2 - min_val) / (max_val-min_val)
+  
+  total_dist, dist_2_to_1, dist_1_to_2 = chamfer.chamfer_distance_np_var_len([dist1_norm, dist2_norm])
+  print("Total Distance: ", total_dist)
+  print("Distance from 1 to 2: ", dist_1_to_2)
+  print("Distance from 2 to 1: ", dist_2_to_1)
+
 def main():
   
   parser = argparse.ArgumentParser()
@@ -156,9 +169,9 @@ def main():
     model_ids = [args.model_ids]
     
   try:
-    data_root = os.environ["PREDICTIVE_SKETCHING_DATA_DIR"]
-    log_dir = os.environ["PREDICTIVE_SKETCHING_LOG_DIR"]
-    log_eval_dir = os.environ["PREDICTIVE_SKETCHING_EVAL_DIR"]
+    data_root = os.environ["COSE_DATA_DIR"]
+    log_dir = os.environ["COSE_LOG_DIR"]
+    log_eval_dir = os.environ["COSE_EVAL_DIR"]
     gdrive_key = os.environ["GDRIVE_API_KEY"]
   except KeyError:
     raise Exception("Environment variables are not set.")
@@ -188,13 +201,14 @@ def main():
       
       # predicted_embeddings = None
       gt_2d_tsne, pred_2d_tsne = tsne_2d(gt_embeddings, predicted_embeddings, os.path.join(eval_dir, "gt_emb"), c_kmeans=10, norm_kmeans=False)
+      calculate_dist_distance(gt_2d_tsne, pred_2d_tsne)
       gt_2d_pca, pred_2d_pca = pca_2d(gt_embeddings, predicted_embeddings, os.path.join(eval_dir, "gt_emb"), c_kmeans=10, norm_kmeans=False)
 
       # Fit multivariate normal and compare.
       if predicted_embeddings is not None:
         mvn_gt = fit_multivariate_normal(gt_embeddings)
         mvn_prediction = fit_multivariate_normal(predicted_embeddings)
-  
+        
         kl_gt_to_pred = mvn_gt.kl_divergence(mvn_prediction)
         kl_pred_to_gt = mvn_prediction.kl_divergence(mvn_gt)
         print("kl_gt_to_pred: {}".format(kl_gt_to_pred))

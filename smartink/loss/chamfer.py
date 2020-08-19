@@ -86,7 +86,24 @@ def chamfer_distance_np(arrays):
   distances2, _ = tree2.query(array1)
   av_dist1 = np.sum(distances1)
   av_dist2 = np.sum(distances2)
-  return av_dist1 + av_dist2
+  return av_dist1 + av_dist2, av_dist1, av_dist2
+
+
+def chamfer_distance_np_var_len_normalized(arrays):
+  """Chamfer distance in numpy supporting arrays with different lengths.
+  
+  Args:
+    arrays:
+  Returns:
+  """
+  x, y = arrays
+  x_nn = NearestNeighbors(n_neighbors=1, leaf_size=1, algorithm='kd_tree', metric='l2').fit(x)
+  min_y_to_x = x_nn.kneighbors(y)[0]
+  y_nn = NearestNeighbors(n_neighbors=1, leaf_size=1, algorithm='kd_tree', metric='l2').fit(y)
+  min_x_to_y = y_nn.kneighbors(x)[0]
+  dist_y_to_x = np.mean(min_y_to_x)
+  dist_x_to_y = np.mean(min_x_to_y)
+  return dist_y_to_x + dist_x_to_y#, dist_y_to_x, dist_x_to_y
 
 
 def chamfer_distance_np_var_len(arrays):
@@ -101,5 +118,6 @@ def chamfer_distance_np_var_len(arrays):
   min_y_to_x = x_nn.kneighbors(y)[0]
   y_nn = NearestNeighbors(n_neighbors=1, leaf_size=1, algorithm='kd_tree', metric='l2').fit(y)
   min_x_to_y = y_nn.kneighbors(x)[0]
-  chamfer_dist = np.mean(min_y_to_x) + np.mean(min_x_to_y)
-  return chamfer_dist
+  dist_y_to_x = np.sum(min_y_to_x)
+  dist_x_to_y = np.sum(min_x_to_y)
+  return dist_y_to_x + dist_x_to_y, dist_y_to_x, dist_x_to_y
