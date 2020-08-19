@@ -555,7 +555,7 @@ class TransformerSeq2seqConditional(BaseModel):
     rel_val_emb = None
     
     enc_inp = self.input_layer(enc_inp)
-    enc_output, _ = self.encoder(
+    enc_output, attn_weights = self.encoder(
         enc_inp,
         enc_inp,
         training,
@@ -583,7 +583,9 @@ class TransformerSeq2seqConditional(BaseModel):
     representation = self.decoder(dec_inp[:, 0])
 
     # (batch_size, tar_seq_len, target_vocab_size)
-    return self.output_layer(representation)
+    model_out = self.output_layer(representation)
+    model_out["attention_weights"] = attn_weights
+    return model_out
 
 
 class TransformerAR(BaseModel):
