@@ -168,10 +168,10 @@ class TrainingEngine(object):
     eval_loss_summary = AggregateAvg()
     
     # Early stopping configuration.
-    improvement_ratio = 0.001
+    improvement_ratio = 0.0001
     best_valid_loss = np.inf
     num_steps_wo_improvement = 0
-    early_stopping_tolerance = 20
+    early_stopping_tolerance = 30
 
     # Run Training Loop.
     stop_signal = False
