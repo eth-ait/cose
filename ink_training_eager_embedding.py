@@ -5,10 +5,12 @@ from __future__ import division
 from __future__ import print_function
 
 import os
+import glob
 import tensorflow as tf
 from absl import app
 
 from common.constants import Constants as C
+from common.export_code import export_code
 from smartink.source.training_eager import TrainingEngine
 from smartink.config.config_embedding import define_flags
 from smartink.config.config_embedding import get_config
@@ -28,6 +30,9 @@ if gpu:
 def main(argv):
   del argv
   config = get_config(FLAGS)
+
+  code_files = glob.glob('**/*.py', recursive=True)
+  export_code(code_files, os.path.join(config.experiment.model_dir, 'code.zip'))
 
   # Create Dataset
   train_data = build_dataset(config, C.RUN_EAGER, C.DATA_TRAIN)
