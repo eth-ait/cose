@@ -460,9 +460,9 @@ def get_config(FLAGS, experiment_id=None):
   config.data.meta_data_path = os.path.join(data_root, config.data.data_name,
                                             config.data.data_meta_fname)
   
-  config.experiment.pretrained_dir = None
+  config.experiment.pretrained_emb_dir = None
   if config.experiment.get("pretrained_emb_id", None) is not None:
-    config.experiment.pretrained_dir = glob.glob(os.path.join(log_dir, config.experiment.pretrained_emb_id + "-*"))[0]
+    config.experiment.pretrained_emb_dir = glob.glob(os.path.join(log_dir, config.experiment.pretrained_emb_id + "-*"))[0]
   
   config.gdrive.credential = gdrive_key
   if FLAGS.gdrive_api_key == "nope":
@@ -512,10 +512,9 @@ def restore_config(FLAGS, experiment_id):
   config.data.meta_data_path = os.path.join(data_root, config.data.data_name,
                                             config.data.data_meta_fname)
   
-  config.experiment.pretrained_dir = None
+  config.experiment.pretrained_emb_dir = None
   if config.experiment.get("pretrained_emb_id", None) is not None:
-    config.experiment.pretrained_dir = glob.glob(
-      os.path.join(log_dir, config.experiment.pretrained_emb_id + "-*"))[0]
+    config.experiment.pretrained_emb_dir = glob.glob(os.path.join(log_dir, config.experiment.pretrained_emb_id + "-*"))[0]
   
   config.gdrive.credential = gdrive_key
   return config

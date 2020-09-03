@@ -47,13 +47,17 @@ class TrainingEngine(object):
     self.model.set_step(self.step)
     self.model.embedding_model.set_step(self.step)
     
-    # self.optimizer.iterations
+    self.pretrained_emb_dir = config.experiment.get("pretrained_emb_dir", None)
+    self.train_embedding_model = self.pretrained_emb_dir is None
 
     self.checkpoint = tf.train.Checkpoint(
         optimizer=self.optimizer_stroke_ae,
         optimizer_emb=self.optimizer_emb_pred,
         optimizer_pos=self.optimizer_pos_pred,
         model=self.model,
+        # position_model=self.model.position_model,
+        # embedding_model=self.model.embedding_model,
+        # prediction_model=self.model.predictive_model,
         global_step=self.step)
     
     self.saver = tf.train.CheckpointManager(
@@ -88,11 +92,14 @@ class TrainingEngine(object):
     with tf.GradientTape() as tape:
       predictions = self.model(inputs=batch_inputs, training=True)
       loss_dict = self.model.loss(predictions, batch_targets, training=True)
-      
-    grads = tape.gradient(loss_dict["loss"], {"stroke_ae":self.model.embedding_model.trainable_variables, "emb_pred":self.model.predictive_model.trainable_variables, "pos_pred":self.model.position_model.trainable_variables})
-    
-    grads_params = self.grad_clip(self.model.embedding_model.trainable_variables, grads["stroke_ae"])
-    self.optimizer_stroke_ae.apply_gradients(grads_params)
+
+      if self.train_embedding_model:
+        grads = tape.gradient(loss_dict["loss"], {"stroke_ae":self.model.embedding_model.trainable_variables, "emb_pred":self.model.predictive_model.trainable_variables, "pos_pred":self.model.position_model.trainable_variables})
+
+        grads_params = self.grad_clip(self.model.embedding_model.trainable_variables, grads["stroke_ae"])
+        self.optimizer_stroke_ae.apply_gradients(grads_params)
+      else:
+        grads = tape.gradient(loss_dict["loss"], {"emb_pred":self.model.predictive_model.trainable_variables, "pos_pred":self.model.position_model.trainable_variables})
 
     grads_params_pred = self.grad_clip(self.model.predictive_model.trainable_variables, grads["emb_pred"])
     self.optimizer_emb_pred.apply_gradients(grads_params_pred)
@@ -106,10 +113,13 @@ class TrainingEngine(object):
       predictions = self.model(inputs=batch_inputs, training=True)
       loss_dict = self.model.loss(predictions, batch_targets, training=True)
       
-    grads = tape.gradient(loss_dict["loss"], {"stroke_ae":self.model.embedding_model.trainable_variables, "emb_pred":self.model.predictive_model.trainable_variables, "pos_pred":self.model.position_model.trainable_variables})
-    
-    grads_params = self.grad_clip(self.model.embedding_model.trainable_variables, grads["stroke_ae"])
-    self.optimizer_stroke_ae.apply_gradients(grads_params)
+      if self.train_embedding_model:
+        grads = tape.gradient(loss_dict["loss"], {"stroke_ae":self.model.embedding_model.trainable_variables, "emb_pred":self.model.predictive_model.trainable_variables, "pos_pred":self.model.position_model.trainable_variables})
+
+        grads_params = self.grad_clip(self.model.embedding_model.trainable_variables, grads["stroke_ae"])
+        self.optimizer_stroke_ae.apply_gradients(grads_params)
+      else:
+        grads = tape.gradient(loss_dict["loss"], {"emb_pred":self.model.predictive_model.trainable_variables, "pos_pred":self.model.position_model.trainable_variables})
 
     grads_params_pred = self.grad_clip(self.model.predictive_model.trainable_variables, grads["emb_pred"])
     self.optimizer_emb_pred.apply_gradients(grads_params_pred)
@@ -157,6 +167,26 @@ class TrainingEngine(object):
     batch_inputs, batch_targets = self.train_data.get_next()
     _ = self.model(inputs=batch_inputs, training=True)
 
+    # Restore the embedding model only.
+    if self.pretrained_emb_dir is not None:
+      partial_checkpoint = tf.train.Checkpoint(embedding_model=self.model.embedding_model)
+      embedding_checkpoint = tf.train.Checkpoint(model=partial_checkpoint)
+      embedding_checkpoint_path = tf.train.latest_checkpoint(self.pretrained_emb_dir)
+      if embedding_checkpoint_path is None:
+        raise Exception("Checkpoint not found.")
+      else:
+        print("Loading embedding model " + embedding_checkpoint_path)
+
+      emb_weights_before = self.model.embedding_model.trainable_variables[0][0, 0:3].numpy()
+      pred_weights_before = self.model.predictive_model.trainable_variables[0][0, 0:3].numpy()
+      embedding_checkpoint.restore(embedding_checkpoint_path).assert_existing_objects_matched()
+      self.step.assign(0)
+      emb_weights_after = self.model.embedding_model.trainable_variables[0][0, 0:3].numpy()
+      pred_weights_after = self.model.predictive_model.trainable_variables[0][0, 0:3].numpy()
+      # Sanity check.
+      assert np.all(emb_weights_before != emb_weights_after), "Embedding model weights are not restored: {} vs. {}".format(emb_weights_before, emb_weights_after)
+      assert np.all(pred_weights_before == pred_weights_after), "Prediction model weights changed: {} vs. {}".format(pred_weights_before, pred_weights_after)
+
     print("# of Total Parameters: " + str(self.model.count_params()))
     print("# of Stroke Auto-encoder Parameters: " + str(self.count_params(self.model.embedding_model.trainable_variables)))
     print("# of Embedding Prediction Parameters: " + str(self.count_params(self.model.predictive_model.trainable_variables)))
@@ -171,7 +201,7 @@ class TrainingEngine(object):
     improvement_ratio = 0.0001
     best_valid_loss = np.inf
     num_steps_wo_improvement = 0
-    early_stopping_tolerance = 30
+    early_stopping_tolerance = 40
 
     # Run Training Loop.
     stop_signal = False
@@ -224,9 +254,9 @@ class TrainingEngine(object):
               (time.perf_counter() - start_time)/eval_step))
 
       # Early stopping check.
-      # valid_loss = eval_loss_dict["loss"]
-      valid_loss = eval_loss_dict["reconstruction_stroke"]
-      valid_loss += eval_loss_dict.get("reconstruction_embedding_kld", 0.0)
+      valid_loss = eval_loss_dict["loss"]
+      # valid_loss = eval_loss_dict["reconstruction_stroke"]
+      # valid_loss += eval_loss_dict.get("reconstruction_embedding_kld", 0.0)
       
       if (best_valid_loss - valid_loss) > np.abs(
           best_valid_loss*improvement_ratio):
