@@ -214,28 +214,8 @@ experiment_list_predictive_transformer = [
     ]
 
 experiment_list_rebuttal = [
-    'python ink_training_eager_predictive.py '
-    '--comment "leo_test-rebuttal-cose_no_target_pos" --gt_targets '
-    '--num_pred_inputs 32 --stop_predictive_grad --pred_input_type hybrid '
-    '--stroke_loss nll_gmm --n_t_samples 4 --batch_size 128 '
-    '--affine_prob 0.3 --resampling_factor 2 --scale_factor 0 '
-    '--grad_clip_norm 1 '
-    '--encoder_model transformer --transformer_scale --transformer_pos_encoding '
-    '--transformer_layers 6 --transformer_heads 4 --transformer_dmodel 64 '
-    '--transformer_hidden_units 256 --transformer_dropout 0.0 --latent_units 8 '
-    '--decoder_model t_emb --decoder_dropout 0.0 --decoder_layers 4 '
-    '--decoder_hidden_units 512,512,512,512 '
-    '--predictive_model transformer --learning_rate_type transformer '
-    '--p_transformer_layers 6 --p_transformer_heads 4 --p_transformer_dmodel 64 '
-    '--p_transformer_hidden_units 256 --p_transformer_dropout 0.0 '
-    '--p_transformer_scale '
-    '--embedding_loss nll_gmm --embedding_gmm_components 10 '
-    '--loss_predicted_embedding --loss_reconstructed_ink '
-    '--position_model transformer --data_name didi_wo_text '
-    '--metadata_type position --disable_pen_loss --mask_encoder_pen ',
-    
     # 'python ink_training_eager_predictive.py '
-    # '--comment "leo_test-rebuttal-cose_GMM7" --gt_targets --use_start_pos '
+    # '--comment "leo_test-rebuttal-cose_no_target_pos" --gt_targets '
     # '--num_pred_inputs 32 --stop_predictive_grad --pred_input_type hybrid '
     # '--stroke_loss nll_gmm --n_t_samples 4 --batch_size 128 '
     # '--affine_prob 0.3 --resampling_factor 2 --scale_factor 0 '
@@ -249,58 +229,58 @@ experiment_list_rebuttal = [
     # '--p_transformer_layers 6 --p_transformer_heads 4 --p_transformer_dmodel 64 '
     # '--p_transformer_hidden_units 256 --p_transformer_dropout 0.0 '
     # '--p_transformer_scale '
-    # '--embedding_loss nll_gmm --embedding_gmm_components 7 '
+    # '--embedding_loss nll_gmm --embedding_gmm_components 10 '
     # '--loss_predicted_embedding --loss_reconstructed_ink '
     # '--position_model transformer --data_name didi_wo_text '
     # '--metadata_type position --disable_pen_loss --mask_encoder_pen ',
     
+    # # COSE
     # 'python ink_training_eager_predictive.py '
-    # '--comment "leo_test-rebuttal-cose_with_grads" --gt_targets --use_start_pos '
-    # '--num_pred_inputs 32 --pred_input_type hybrid '
-    # '--stroke_loss nll_gmm --n_t_samples 4 --batch_size 128 '
-    # '--affine_prob 0.3 --resampling_factor 2 --scale_factor 0 '
+    # '--comment "tf2-af03-t_s4-hyb32-tres2-gt_targ-fullstopg" --gt_targets '
+    # '--use_start_pos --num_pred_inputs 32 --stop_predictive_grad '
+    # '--pred_input_type hybrid --stroke_loss nll_gmm --n_t_samples 4 '
+    # '--batch_size 128 --affine_prob 0.3 --resampling_factor 2 --scale_factor 0 '
     # '--grad_clip_norm 1 '
     # '--encoder_model transformer --transformer_scale --transformer_pos_encoding '
     # '--transformer_layers 6 --transformer_heads 4 --transformer_dmodel 64 '
     # '--transformer_hidden_units 256 --transformer_dropout 0.0 --latent_units 8 '
     # '--decoder_model t_emb --decoder_dropout 0.0 --decoder_layers 4 '
-    # '--decoder_hidden_units 512,512,512,512 '
-    # '--predictive_model transformer --learning_rate_type transformer '
+    # '--decoder_hidden_units 512,512,512,512 --predictive_model transformer '
+    # '--learning_rate_type transformer '
     # '--p_transformer_layers 6 --p_transformer_heads 4 --p_transformer_dmodel 64 '
     # '--p_transformer_hidden_units 256 --p_transformer_dropout 0.0 '
-    # '--p_transformer_scale '
+    # '--p_transformer_scale --position_model transformer '
     # '--embedding_loss nll_gmm --embedding_gmm_components 10 '
     # '--loss_predicted_embedding --loss_reconstructed_ink '
-    # '--position_model transformer --data_name didi_wo_text '
-    # '--metadata_type position --disable_pen_loss --mask_encoder_pen ',
-    #
-    # 'python ink_training_eager_predictive.py '
-    # '--comment "leo_test-rebuttal-cose_with_grads_D12" --gt_targets --use_start_pos '
-    # '--num_pred_inputs 32 --pred_input_type hybrid '
-    # '--stroke_loss nll_gmm --n_t_samples 4 --batch_size 128 '
-    # '--affine_prob 0.3 --resampling_factor 2 --scale_factor 0 '
-    # '--grad_clip_norm 1 '
-    # '--encoder_model transformer --transformer_scale --transformer_pos_encoding '
-    # '--transformer_layers 6 --transformer_heads 4 --transformer_dmodel 64 '
-    # '--transformer_hidden_units 256 --transformer_dropout 0.0 --latent_units 12 '
-    # '--decoder_model t_emb --decoder_dropout 0.0 --decoder_layers 4 '
-    # '--decoder_hidden_units 512,512,512,512 '
-    # '--predictive_model transformer --learning_rate_type transformer '
-    # '--p_transformer_layers 6 --p_transformer_heads 4 --p_transformer_dmodel 64 '
-    # '--p_transformer_hidden_units 256 --p_transformer_dropout 0.0 '
-    # '--p_transformer_scale '
-    # '--embedding_loss nll_gmm --embedding_gmm_components 10 '
-    # '--loss_predicted_embedding --loss_reconstructed_ink '
-    # '--position_model transformer --data_name didi_wo_text '
-    # '--metadata_type position --disable_pen_loss --mask_encoder_pen ',
+    # '--data_name didi_wo_text --metadata_type position --disable_pen_loss '
+    # '--mask_encoder_pen ',
+    
+  'python ink_training_eager_predictive.py '
+    '--comment "dist_cond-af03-t_s4-hyb32-tres2-gt_targ" --gt_targets '
+    '--use_start_pos --num_pred_inputs 32 --stop_predictive_grad '
+    '--pred_input_type hybrid --stroke_loss nll_gmm --n_t_samples 4 '
+    '--batch_size 128 --affine_prob 0.3 --resampling_factor 2 --scale_factor 0 '
+    '--grad_clip_norm 1 '
+    '--encoder_model transformer --transformer_scale --transformer_pos_encoding '
+    '--transformer_layers 6 --transformer_heads 4 --transformer_dmodel 64 '
+    '--transformer_hidden_units 256 --transformer_dropout 0.0 --latent_units 8 '
+    '--decoder_model t_emb --decoder_dropout 0.0 --decoder_layers 4 '
+    '--decoder_hidden_units 512,512,512,512 --predictive_model transformer '
+    '--learning_rate_type transformer '
+    '--p_transformer_layers 6 --p_transformer_heads 4 --p_transformer_dmodel 64 '
+    '--p_transformer_hidden_units 256 --p_transformer_dropout 0.0 '
+    '--p_transformer_scale --position_model transformer '
+    '--embedding_loss nll_gmm --embedding_gmm_components 10 '
+    '--loss_predicted_embedding --loss_reconstructed_ink '
+    '--data_name didi_wo_text --metadata_type position --disable_pen_loss '
+    '--mask_encoder_pen ',
     ]
 
 experiment_list = experiment_list_rebuttal
 data = ''
 
 experiment_timestamp = str(int(time.time()))
-experiment_timestamp = "1597224180"
-start_id = 2
+start_id = 1
 for work_id, experiment in enumerate(experiment_list):
     experiment_id = "{}.{}".format(experiment_timestamp, start_id+work_id)
     time.sleep(1)

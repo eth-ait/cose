@@ -13,7 +13,6 @@ import math
 import os
 import numpy as np
 import tensorflow as tf
-from rdp import rdp
 
 from smartink.data.base_dataset import Dataset
 from common.constants import Constants as C
@@ -56,6 +55,7 @@ class TFRecordStroke(Dataset):
     self.concat_t_inputs = kwargs.get("concat_t_inputs", False)
     self.reverse_prob = kwargs.get("reverse_prob", 0)
     self.random_noise_factor = kwargs.get("random_noise_factor", 0)
+    self.pos_noise_factor = kwargs.get("pos_noise_factor", 0)
     
     self.rdp = kwargs.get("rdp", False)
     self.rdp_didi_pp = kwargs.get("rdp_didi_pp", False)
@@ -147,6 +147,11 @@ class TFRecordStroke(Dataset):
     if self.scale_factor > 0:
       self.tf_data = self.tf_data.map(
           functools.partial(self.pp_random_scale),
+          num_parallel_calls=self.num_parallel_calls)
+
+    if self.pos_noise_factor > 0:
+      self.tf_data = self.tf_data.map(
+          functools.partial(self.perturb_start_positions),
           num_parallel_calls=self.num_parallel_calls)
     
     self.tf_data = self.tf_data.map(
@@ -602,6 +607,14 @@ class TFRecordStroke(Dataset):
     sample["ink"] = tf.cond(pred=self.reverse_prob > tf.random.uniform([1], maxval=1.0)[0],
                             true_fn=lambda: tf.reverse_sequence(input=sample["ink"], seq_lengths=tf.expand_dims(sample["stroke_length"], axis=0), seq_axis=1),
                             false_fn=lambda: sample["ink"])
+    return sample
+  
+  def perturb_start_positions(self, sample):
+    # Apply random noise up to a factor of the maximum values.
+    xy_ratio = tf.cast(tf.reduce_max(sample["ink"][:, :, 0:2], axis=[0,1]) * self.pos_noise_factor, tf.float32)
+    pos_noise = tf.random.uniform(shape=[tf.shape(sample["ink"])[0], 1, 2], minval=-xy_ratio, maxval=xy_ratio)
+    pos_noise = tf.concat([pos_noise, tf.zeros_like(pos_noise)], axis=2)
+    sample["ink"] += pos_noise
     return sample
   
   def set_start_end_coord(self, sample):
@@ -1407,49 +1420,48 @@ if __name__ == "__main__":
   # from tensorflow.python.framework.ops import disable_eager_execution
   # disable_eager_execution()
 
-  DATA_DIR = "/local/home/emre/Projects/google/data/didi_wo_text_rdp/"
+  DATA_DIR = "/local/home/emre/Projects/smartink/data/didi_wo_text/"
   tfrecord_pattern = "diagrams_wo_text_20200131-?????-of-?????"
   # DATA_DIR = "/local/home/emre/Projects/google/data/didi_all/"
   # tfrecord_pattern = "diagrams_20200131-?????-of-?????"
   
   SPLIT = "test"
-  # META_FILE = "didi_wo_text-stats-origin_abs_pos.npy"
-  META_FILE = "didi_wo_text_rdp-stats-relative_pos.npy"
+  META_FILE = "didi_wo_text-stats-origin_abs_pos.npy"
   data_path_ = [os.path.join(DATA_DIR, SPLIT, tfrecord_pattern)]
 
-  train_data = TFRecordStroke(
+  # train_data = TFRecordStroke(
+  #     data_path=data_path_,
+  #     meta_data_path=DATA_DIR + META_FILE,
+  #     batch_size=1,
+  #     shuffle=False,
+  #     normalize=True,
+  #     pp_to_origin=True,
+  #     pp_relative_pos=True,
+  #     run_mode=C.RUN_EAGER,
+  #     max_length_threshold=301,
+  #     fixed_len=False,
+  #     mask_pen=False,
+  #     scale_factor=0,
+  #     resampling_factor=0,
+  #     random_noise_factor=0,
+  #     gt_targets=False,
+  #     n_t_targets=4,
+  #     concat_t_inputs=False,
+  #     reverse_prob=0,
+  #     t_drop_ratio=0,
+  #     affine_prob=0,
+  #     min_length_threshold = 2,
+  #     rdp=True,
+  #     rdp_didi_pp=False,
+  #     )
+
+  train_data = TFRecordSingleDiagram(
       data_path=data_path_,
       meta_data_path=DATA_DIR + META_FILE,
       batch_size=1,
-      shuffle=False,
-      normalize=True,
-      pp_to_origin=True,
-      pp_relative_pos=True,
-      run_mode=C.RUN_EAGER,
-      max_length_threshold=301,
-      fixed_len=False,
-      mask_pen=False,
-      scale_factor=0,
-      resampling_factor=0,
-      random_noise_factor=0,
-      gt_targets=False,
-      n_t_targets=4,
-      concat_t_inputs=False,
-      reverse_prob=0,
-      t_drop_ratio=0,
-      affine_prob=0,
-      min_length_threshold = 2,
-      rdp=True,
-      rdp_didi_pp=False,
-      )
-
-  train_data = TFRecordBatchDiagram(
-      data_path=data_path_,
-      meta_data_path=DATA_DIR + META_FILE,
-      batch_size=2,
       shuffle=True,
       normalize=False,
-      pp_to_origin=False,
+      pp_to_origin=True,
       pp_relative_pos=False,
       run_mode=C.RUN_EAGER,
       max_length_threshold=201,
@@ -1465,7 +1477,7 @@ if __name__ == "__main__":
       concat_t_inputs=False,
       t_drop_ratio = 0,
       min_length_threshold = 1,
-      rdp=True,
+      rdp=False,
       )
 
   from visualization.visualization import InkVisualizer
@@ -1494,89 +1506,12 @@ if __name__ == "__main__":
 
       plt.close()
       vis_sample = dict()
-      key_ = str(sample_id) + "_" + "t_with_ramer_resampled"
-
-      ramer_stroke = rdp(target_batch["stroke"][0].numpy()*3000, epsilon=2.0)/3000
-      ramer_stroke[:, 1] *= -1
-      ramer_pen = np.zeros_like(ramer_stroke[:, 0:1])
-      ramer_pen[:, -1] = 1
-      ramer_stroke3d = np.concatenate([ramer_stroke, ramer_pen], axis=-1)
-      fig, ax = render_strokes([ramer_stroke3d])
-      print(key_ + " length: " + str(ramer_stroke3d.shape[0]))
-
-      t_target_ink = dict()
-      tmp_ = np.expand_dims(input_batch["t_target_ink"], axis=0)
-      t_target_ink["stroke"] = tmp_[:, :, 0:2]
-      t_target_ink["pen"] = tmp_[:, :, 2:]
-      t_target_ink["seq_len"] = np.array([tmp_.shape[1]])
-      t_target_strokes = padded_to_stroke_list(t_target_ink,
-                                               train_data.np_undo_preprocessing)
-
-      plt.scatter(t_target_strokes[0][:, 0], t_target_strokes[0][:, 1],
-                  color="k")
-      fig.savefig(os.path.join(vis_engine.log_dir, key_ + ".png"),
-                  format="png", bbox_inches='tight', dpi=200)
-
-      plt.close()
-      vis_sample = dict()
-      key_ = str(sample_id) + "_" + "t_with_original"
-      target_batch = dict_tf_to_numpy(target_batch)
-      vis_sample[key_] = dict()
-      vis_sample[key_]["stroke"] = target_batch["stroke"]
-      vis_sample[key_]["pen"] = target_batch["pen"]
-      # vis_sample[key_]["start_coord"] = input_batch["start_coord"]
-      vis_sample[key_]["seq_len"] = target_batch["seq_len"]
-      strokes = padded_to_stroke_list(vis_sample[key_], train_data.np_undo_preprocessing)
-      fig, ax = render_strokes(strokes)
-      print(key_ + " length: " + str(strokes[0].shape[0]))
-
-      t_target_ink = dict()
-      tmp_ = np.expand_dims(input_batch["t_target_ink"], axis=0)
-      t_target_ink["stroke"] = tmp_[:, :, 0:2]
-      t_target_ink["pen"] = tmp_[:, :, 2:]
-      t_target_ink["seq_len"] = np.array([tmp_.shape[1]])
-      t_target_strokes = padded_to_stroke_list(t_target_ink, train_data.np_undo_preprocessing)
-
-      plt.scatter(t_target_strokes[0][:, 0], t_target_strokes[0][:, 1], color="k")
-      fig.savefig(os.path.join(vis_engine.log_dir, key_+".png"),
-                  format="png", bbox_inches='tight', dpi=200)
-
-      plt.close()
-      vis_sample = dict()
-      key_ = str(sample_id) + "_" + "t_with_resampled"
-      input_batch = dict_tf_to_numpy(input_batch)
-      vis_sample[key_] = dict()
-      vis_sample[key_]["stroke"] = input_batch["encoder_inputs"][:, :, 0:2]
-      vis_sample[key_]["pen"] = input_batch["encoder_inputs"][:, :, 2:]
-      # vis_sample[key_]["start_coord"] = input_batch["start_coord"]
-      vis_sample[key_]["seq_len"] = input_batch["seq_len"]
-      strokes = padded_to_stroke_list(vis_sample[key_], train_data.np_undo_preprocessing)
-      fig, ax = render_strokes(strokes)
-      print(key_ + " length: " + str(strokes[0].shape[0]))
-
-      t_target_ink = dict()
-      tmp_ = np.expand_dims(input_batch["t_target_ink"], axis=0)
-      t_target_ink["stroke"] = tmp_[:, :, 0:2]
-      t_target_ink["pen"] = tmp_[:, :, 2:]
-      t_target_ink["seq_len"] = np.array([tmp_.shape[1]])
-      t_target_strokes = padded_to_stroke_list(t_target_ink, train_data.np_undo_preprocessing)
-
-      plt.scatter(t_target_strokes[0][:, 0], t_target_strokes[0][:, 1], color="k")
-      fig.savefig(os.path.join(vis_engine.log_dir, key_+".png"),
-                  format="png", bbox_inches='tight', dpi=200)
+      key_ = str(sample_id)
+      target_batch_np = dict_tf_to_numpy(target_batch)
+      vis_engine.vis_stroke(target_batch_np, "sample_" + key_)
       
       if sample_id == 5:
         break
         
   except tf.errors.OutOfRangeError:
     pass
-
-  # seq_lens = []
-  # starts = []
-  # for input_batch, target_batch in train_data.iterator:
-  #   seq_lens.extend(input_batch[C.INP_SEQ_LEN].numpy().tolist())
-  #   seq_lens.extend(target_batch[C.INP_SEQ_LEN].numpy().tolist())
-  #   starts.extend(input_batch["start_coord"])
-  #   # seq_lens.append(input_batch["seq_len"].numpy().max())
-  # seq_lens = np.array(seq_lens)
-  # print("Done")

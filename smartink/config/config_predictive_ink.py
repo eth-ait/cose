@@ -59,6 +59,7 @@ def define_flags():
   flags.DEFINE_boolean("gt_targets", False, "whether to keep the ground-truth targets after pre-processing or not.")
   flags.DEFINE_boolean("rdp_dataset", False, "whether to use shorter rdp version or the full.")
   flags.DEFINE_boolean("rdp_didi_pp", False, "whether to apply didi preprocessing or not.")
+  flags.DEFINE_float("pos_noise_factor", 0, "Amount of noise multiplier for the initial positions.")
   
   # Experiment details
   flags.DEFINE_integer("batch_size", 100, "batch size for training")
@@ -214,6 +215,7 @@ def get_config(FLAGS, experiment_id=None):
       concat_t_inputs=FLAGS.concat_t_inputs,
       rdp_dataset=FLAGS.rdp_dataset,
       rdp_didi_pp=FLAGS.rdp_didi_pp,
+      pos_noise_factor=FLAGS.pos_noise_factor,
       )
   config.gdrive = AttrDict(
       credential=None,  # Set automatically below.
@@ -680,6 +682,7 @@ def build_dataset(config_, run_mode=C.RUN_STATIC, split=C.DATA_TRAIN):
         resampling_factor=config_.data.get("resampling_factor", 0),
         t_drop_ratio=config_.data.get("t_drop_ratio", 0),
         scale_factor=config_.data.get("scale_factor", 0),
+        pos_noise_factor=config_.data.get("pos_noise_factor", 0),
         affine_prob=config_.data.get("affine_prob", 0),
         reverse_prob=config_.data.get("reverse_prob", 0),
         gt_targets=config_.data.get("gt_targets", False),
