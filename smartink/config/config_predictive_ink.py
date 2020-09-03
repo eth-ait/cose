@@ -122,6 +122,7 @@ def define_flags():
   flags.DEFINE_bool("use_end_pos", False, "whether to feed stroke end position or not.")
   flags.DEFINE_bool("stop_predictive_grad", False, "whether to stop gradient flow to the embedding model or not.")
   flags.DEFINE_string("pred_input_type", "random", "input/target configuration: single[leave_one_out, last_step], set[random, ordered, hybrid].")
+  flags.DEFINE_string("pooling_layer", "last_step", "How to aggregate the set transformer outputs: pick the last_step or take the mean.")
   flags.DEFINE_integer("num_pred_inputs", 8, "# of input/target configurations,")
   
   # Predictive: RNN models.
@@ -311,6 +312,7 @@ def get_config(FLAGS, experiment_id=None):
         stop_predictive_grad=FLAGS.stop_predictive_grad,
         num_predictive_inputs=FLAGS.num_pred_inputs,
         pred_input_type=FLAGS.pred_input_type,
+        pooling_layer=FLAGS.pooling_layer,
     )
   else:
     err_unknown_type(FLAGS.predictive_model)
@@ -612,7 +614,8 @@ def build_predictive_model(config_, run_mode):
         pos_encoding_len=100 if config_.predictive_model.pos_encoding else 0,
         scale=config_.predictive_model.scale,
         run_mode=run_mode,
-        autoregressive=False
+        autoregressive=False,
+        pooling=config_.predictive_model.pooling_layer,
         )
   else:
     err_unknown_type(config_.predictive_model.name)

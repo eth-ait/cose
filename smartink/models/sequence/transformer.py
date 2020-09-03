@@ -460,6 +460,7 @@ class TransformerSeq2seqConditional(BaseModel):
                scale=False,
                pos_encoding_len=0,
                autoregressive=False,
+               pooling="last_step",
                **kwargs):
     super(TransformerSeq2seqConditional, self).__init__(
         config_loss=config_loss, run_mode=run_mode, **kwargs)
@@ -479,6 +480,13 @@ class TransformerSeq2seqConditional(BaseModel):
     self.pos_encoding = None
     if pos_encoding_len > 0:
       self.pos_encoding = positional_encoding(pos_encoding_len, d_model)
+
+    if pooling == "last_step":
+      self.pooling_layer = self.pool_last_step
+    elif pooling == "mean":
+      self.pooling_layer = self.pool_mean
+    else:
+      self.pooling_layer = None
 
     # Deterministic or stochastic outputs.
     self.output_layer = None
@@ -500,7 +508,25 @@ class TransformerSeq2seqConditional(BaseModel):
           self.output_layer = OutputModelDeterministic(self.output_size, 0, 0)
       else:
         self.output_layer = OutputModelDeterministic(self.output_size, 0, 0)
-
+  
+  def pool_last_step(self, inp_, seq_len):
+    # Get the last non-padded step.
+    n_strokes = tf.shape(input=inp_)[0]
+    batch_idx = tf.range(n_strokes)
+    gather_idx = tf.stack([
+        batch_idx,
+        seq_len - 1
+        ], axis=-1)
+    pooled = tf.gather_nd(inp_, gather_idx)
+    return tf.expand_dims(pooled, axis=1)
+  
+  def pool_mean(self, inp_, seq_len):
+    # Take the average by ignoring the padded steps.
+    seq_mask = tf.cast(tf.expand_dims(tf.sequence_mask(seq_len), axis=2), tf.float32)
+    sum_ = tf.reduce_sum(seq_mask*inp_, axis=1)
+    mean_ = sum_ / tf.cast(tf.expand_dims(seq_len, axis=1), tf.float32)
+    return tf.expand_dims(mean_, axis=1)
+  
   def frequency_encoding(self, inputs, n_layers):
     out = list()
     for l in range(n_layers):
@@ -566,16 +592,9 @@ class TransformerSeq2seqConditional(BaseModel):
         rel_key_emb=rel_key_emb,
         rel_val_emb=rel_val_emb)
     
-    # Get the last non-padded step.
-    n_strokes = tf.shape(input=enc_output)[0]
-    batch_idx = tf.range(n_strokes)
-    gather_idx = tf.stack([
-        batch_idx,
-        seq_len - 1
-        ], axis=-1)
-    enc_output = tf.gather_nd(enc_output, gather_idx)
-    enc_output = tf.expand_dims(enc_output, axis=1)
-
+    if self.pooling_layer is not None:
+      enc_output = self.pooling_layer(enc_output, seq_len)
+      
     dec_inp = enc_output
     if target_cond is not None:
       dec_inp = tf.concat([dec_inp, target_cond], axis=-1)
