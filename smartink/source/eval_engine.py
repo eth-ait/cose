@@ -62,7 +62,7 @@ class EvalEngine(object):
     self.model = self.embedding_model if predictive_model is None else predictive_model
     self.gt_len_decoding = True  # Whether to use GT sequence length.
     self.decoded_length = 50  # 40 mean sequence-length
-    self.emb_greedy = False
+    self.emb_greedy = True
     
     # Rendering options. Mostly cosmetics.
     self.save_video = False
@@ -579,7 +579,8 @@ class EvalEngine(object):
       # (8) Predict the next stroke given a predefined set of strokes.
       if self.model.position_model is not None:
         self.__predict_position_ar(input_batch, target_batch, embeddings, idx)
-        # self.__predict_position_ar_with_attention(input_batch, target_batch, embeddings, idx)
+        # self.__predict_position_ar_infinite_canvas(input_batch, target_batch, embeddings, idx)
+        self.__predict_position_ar_with_attention(input_batch, target_batch, embeddings, idx)
         # self.__predict_position_ar_alternatives(input_batch, target_batch, embeddings, idx)
 
     elapsed_time = (time.perf_counter() - start_time) / len(sample_ids)
@@ -801,7 +802,7 @@ class EvalEngine(object):
     
     # Auto-regressive prediction.
     n_strokes = target_batch["num_strokes"][0]
-    n_strokes += 5
+    n_strokes += 10
     context_ids = 2
     context_embeddings = embeddings[:, :context_ids]
     start_positions = np.transpose(target_batch[C.INP_START_COORD], [1, 0, 2])
@@ -897,9 +898,11 @@ class EvalEngine(object):
         # ax.text(target_pos[0, 0, 0], -target_pos[0, 0, 1], pos_str, fontsize=20, ha='center', va='center', color='k') # plt_stroke[0].get_color())
   
       fig.savefig(os.path.join(self.vis_engine.log_dir, "{}_pos_ar_heatmap_ordered_s{}.png".format(sample_idx, str(stroke_i))), format="png", bbox_inches='tight', dpi=200)
-      fig.savefig(os.path.join(self.vis_engine.log_dir, "{}_pos_ar_heatmap_ordered_s{}.svg".format(sample_idx, str(stroke_i))), format="svg", bbox_inches='tight', dpi=200)
+      # fig.savefig(os.path.join(self.vis_engine.log_dir, "{}_pos_ar_heatmap_ordered_s{}.svg".format(sample_idx, str(stroke_i))), format="svg", bbox_inches='tight', dpi=200)
       plt.close()
 
+    np.save(os.path.join(self.vis_engine.log_dir, "data_{}_pos_ar_all".format(sample_idx)), predicted_strokes)
+    
     if self.save_video:
       # Animate AR predictions.
       stroke_colors = [self.prediction_color]*(stroke_i + 1)
@@ -1076,12 +1079,12 @@ class EvalEngine(object):
     
     # Auto-regressive prediction.
     n_strokes = target_batch["num_strokes"][0]
-    n_strokes += 7
-    context_ids = n_strokes // 3
+    n_strokes += 10
+    context_ids = 2
     context_embeddings = embeddings[:, :context_ids]
     start_positions = np.transpose(target_batch[C.INP_START_COORD], [1, 0, 2])
     end_positions = np.transpose(target_batch[C.INP_END_COORD], [1, 0, 2])
-    
+
     # ar_start_pos = [start_positions[:, 0:1], start_positions[:, 1:2]]
     # ar_end_pos = [end_positions[:, 0:1], end_positions[:, 1:2]]
     ar_start_pos = np.split(start_positions[:, 0:context_ids], context_ids, axis=1)
@@ -1148,5 +1151,129 @@ class EvalEngine(object):
       plt.plot(target_pos[0, 0, 0], -target_pos[0, 0, 1], 'ro', lw=3, markersize=8, color=self.prediction_color)
   
       fig.savefig(os.path.join(self.vis_engine.log_dir, "{}_pos_ar_attention_ordered_s{}_all_avg.png".format(sample_idx, stroke_i)), format="png", bbox_inches='tight', dpi=200)
-      fig.savefig(os.path.join(self.vis_engine.log_dir, "{}_pos_ar_attention_ordered_s{}_all_avg.svg".format(sample_idx, stroke_i)), format="svg", bbox_inches='tight', dpi=200)
+      # fig.savefig(os.path.join(self.vis_engine.log_dir, "{}_pos_ar_attention_ordered_s{}_all_avg.svg".format(sample_idx, stroke_i)), format="svg", bbox_inches='tight', dpi=200)
       plt.close()
+
+    np.save(os.path.join(self.vis_engine.log_dir, "data_{}_pos_ar_attention_all".format(sample_idx)), predicted_strokes)
+    np.save(os.path.join(self.vis_engine.log_dir, "data_{}_pos_ar_attention_weights_all".format(sample_idx)), probs)
+    
+  def __predict_position_ar_infinite_canvas(self, input_batch, target_batch, embeddings, sample_idx):
+    """Limit the number of existing strokes by translating a fixed-size canvas."""
+
+    def filter_strokes_via_position(tl_corner, br_corner, positions):
+      """Identifies indices of the strokes within a window.
+
+      Args:
+        tl_corner: (x,y) coordinates of the top left corner.
+        br_corner: (x,y) coordinates of the bottom right corner.
+        positions: array (n points, 2) of 2D positions to be filtered.
+
+      Returns:
+        Index mask of the points within the window.
+      """
+      # br_corner = np.median(target_batch_np["start_coord"][:, 0], 0)
+      on_the_left = np.all(positions <= br_corner, 1)
+      on_the_right = np.all(positions >= tl_corner, 1)
+  
+      within = np.all(np.stack([on_the_right, on_the_left]), 0)
+      return within
+
+    def get_selected_strokes(stroke_dict, indices):
+      stroke_dict["stroke"] = stroke_dict["stroke"][indices]
+      stroke_dict["pen"] = stroke_dict["pen"][indices]
+      stroke_dict["seq_len"] = stroke_dict["seq_len"][indices]
+      stroke_dict["start_coord"] = stroke_dict["start_coord"][indices]
+      return stroke_dict
+    
+    # Set plot limits by using the ground-truth canvas.
+    gt_strokes = padded_to_stroke_list(dict_tf_to_numpy(target_batch),
+                                       self.dataset.np_undo_preprocessing)
+    all_strokes = np.concatenate(gt_strokes, axis=0)
+    x_min, x_max = get_min_max(all_strokes[:, 0], 0.3)
+    y_min, y_max = get_min_max(all_strokes[:, 1], 0.3)
+    
+    # Auto-regressive prediction.
+    n_strokes = target_batch["num_strokes"][0]
+    n_strokes += 10
+    context_ids = 4
+    context_embeddings = embeddings[:, :context_ids]
+    start_positions = np.transpose(target_batch[C.INP_START_COORD], [1, 0, 2])
+    end_positions = np.transpose(target_batch[C.INP_END_COORD], [1, 0, 2])
+
+    # start_positions = start_positions - start_positions.min(1)
+    
+    # ar_start_pos = [start_positions[:, 0:1], start_positions[:, 1:2]]
+    # ar_end_pos = [end_positions[:, 0:1], end_positions[:, 1:2]]
+    ar_start_pos = np.split(start_positions[:, 0:context_ids], context_ids, axis=1)
+    ar_end_pos = np.split(end_positions[:, 0:context_ids], context_ids, axis=1)
+    for stroke_i in range(context_ids, n_strokes):
+      input_pos = np.concatenate(ar_start_pos[:stroke_i], axis=1)
+
+      if self.predictive_model.end_positions:
+        end_pos = np.concatenate(ar_end_pos[:stroke_i], axis=1)
+        input_pos = np.concatenate([input_pos, end_pos], axis=-1)
+      
+      # Mask canvas.
+      canvas_mask = np.arange(stroke_i) >= (stroke_i - 30)
+      masked_input_pos = input_pos[:, canvas_mask]
+      masked_context_embeddings = context_embeddings.numpy()[:, canvas_mask]
+      mask_offset = masked_input_pos[0].min(0)
+      mask_offset = np.zeros_like(mask_offset)
+      masked_input_pos = masked_input_pos - mask_offset
+      
+      pos_ = self.model.predict_position_ar(masked_context_embeddings,
+                                            inp_pos=masked_input_pos,
+                                            greedy=self.emb_greedy)
+
+      target_pos = np.expand_dims(pos_["position_sample"].numpy(), axis=0)
+      target_pos += mask_offset
+      ar_start_pos.append(target_pos)
+
+      out_ = self.model.predict_embedding_ar(masked_context_embeddings,
+                                             inp_pos=masked_input_pos,
+                                             target_pos=target_pos,
+                                             greedy=self.emb_greedy)
+      
+      context_embeddings = tf.concat([context_embeddings, tf.expand_dims(out_["embedding_sample"], axis=0)], axis=1)
+      emb_ = context_embeddings[0].numpy()
+
+      # seq_len = target_batch["seq_len"][:stroke_i + 1]
+      seq_len = np.array([self.decoded_length]*(stroke_i + 1))
+      if not self.gt_len_decoding:
+        seq_len = np.array([self.decoded_length]*(stroke_i + 1))
+        
+      predicted_batch = self.embedding_model.decode_sequence(emb_,
+                                                             seq_len=seq_len)
+      predicted_batch[C.INP_START_COORD] = np.transpose(np.concatenate(ar_start_pos[:stroke_i+1], axis=1), [1,0,2])
+      
+      ### Plot heatmap
+      # Render strokes.
+      predicted_strokes = padded_to_stroke_list(dict_tf_to_numpy(predicted_batch),
+                                                self.dataset.np_undo_preprocessing)
+
+      all_pred_strokes = np.concatenate(predicted_strokes, axis=0)
+      pred_x_min, pred_x_max = get_min_max(all_pred_strokes[:, 0], 0.3)
+      pred_y_min, pred_y_max = get_min_max(all_pred_strokes[:, 1], 0.3)
+      
+      x_min = min(x_min, pred_x_min)
+      x_max = max(x_max, pred_x_max)
+      y_min = min(y_min, pred_y_min)
+      y_max = max(y_max, pred_y_max)
+
+      cmap = mpl.cm.get_cmap('Blues')
+      
+      # Average all attention weights across the model and color the strokes
+      # wrt the attention weights.
+      stroke_colors = np.array(["y"]*stroke_i)
+      stroke_colors[canvas_mask] = "k"
+      stroke_colors = stroke_colors.tolist()
+      stroke_colors.append(self.prediction_color)
+      
+      fig, ax = render_strokes(predicted_strokes, colors=stroke_colors, x_borders=(x_min, x_max), y_borders=(y_min, y_max), highlight_start=self.render_initial_point)
+      plt.plot(target_pos[0, 0, 0], -target_pos[0, 0, 1], 'ro', lw=3, markersize=8, color=self.prediction_color)
+  
+      # fig.savefig(os.path.join(self.vis_engine.log_dir, "{}_pos_ar_masked_s{}_all_avg.png".format(sample_idx, stroke_i)), format="png", bbox_inches='tight', dpi=200)
+      fig.savefig(os.path.join(self.vis_engine.log_dir, "{}_pos_ar_masked_s{}_all_avg.svg".format(sample_idx, stroke_i)), format="svg", bbox_inches='tight', dpi=200)
+      plt.close()
+      
+    np.save(os.path.join(self.vis_engine.log_dir, "data_{}_pos_ar_masked_all".format(sample_idx)), predicted_strokes)

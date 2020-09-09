@@ -123,6 +123,9 @@ def define_flags():
   flags.DEFINE_bool("stop_predictive_grad", False, "whether to stop gradient flow to the embedding model or not.")
   flags.DEFINE_string("pred_input_type", "random", "input/target configuration: single[leave_one_out, last_step], set[random, ordered, hybrid].")
   flags.DEFINE_string("pooling_layer", "last_step", "How to aggregate the set transformer outputs: pick the last_step or take the mean.")
+  flags.DEFINE_bool("inp_target_dist_cond", False, "Whether to feed the distance between the existing strokes and the target stroke to the relational model or not.")
+  flags.DEFINE_bool("inp_conditions", False, "Whether to concatenate the start positions with the embedding inputs or not.")
+  flags.DEFINE_integer("n_spatial_encodings", 0, "# of relative spatial encodings.")
   flags.DEFINE_integer("num_pred_inputs", 8, "# of input/target configurations,")
   
   # Predictive: RNN models.
@@ -142,6 +145,7 @@ def define_flags():
   flags.DEFINE_bool("p_transformer_pos_encoding", False, "Positional encoding.")
   flags.DEFINE_bool("p_transformer_scale", False,
                     "Scaling embeddings in transformer.")
+  flags.DEFINE_bool("p_use_encoder", False, "Use a separate encoder.")
 
   flags.DEFINE_string("position_model", None, "position models: transformer or None.")
   
@@ -313,6 +317,10 @@ def get_config(FLAGS, experiment_id=None):
         num_predictive_inputs=FLAGS.num_pred_inputs,
         pred_input_type=FLAGS.pred_input_type,
         pooling_layer=FLAGS.pooling_layer,
+        inp_target_dist_cond=FLAGS.inp_target_dist_cond,
+        inp_conditions=FLAGS.inp_conditions,
+        n_spatial_encodings=FLAGS.n_spatial_encodings,
+        use_encoder=FLAGS.p_use_encoder
     )
   else:
     err_unknown_type(FLAGS.predictive_model)
@@ -338,6 +346,11 @@ def get_config(FLAGS, experiment_id=None):
         dropout_rate=FLAGS.p_transformer_dropout,
         pos_encoding=FLAGS.p_transformer_pos_encoding,
         scale=FLAGS.p_transformer_scale,
+        pooling_layer=FLAGS.pooling_layer,
+        inp_target_dist_cond=FLAGS.inp_target_dist_cond,
+        inp_conditions=FLAGS.inp_conditions,
+        n_spatial_encodings=FLAGS.n_spatial_encodings,
+        use_encoder=FLAGS.p_use_encoder
     )
   elif FLAGS.position_model is None:
     config.position_model = None
@@ -615,7 +628,11 @@ def build_predictive_model(config_, run_mode):
         scale=config_.predictive_model.scale,
         run_mode=run_mode,
         autoregressive=False,
-        pooling=config_.predictive_model.pooling_layer,
+        pooling=config_.predictive_model.get("pooling_layer", "last_step"),
+        inp_target_dist_cond=config_.predictive_model.get("inp_target_dist_cond", False),
+        inp_conditions=config_.predictive_model.get("inp_conditions", True),
+        n_spatial_encodings=config_.predictive_model.get("n_spatial_encodings", 0),
+        use_encoder=config_.predictive_model.get("use_encoder", False),
         )
   else:
     err_unknown_type(config_.predictive_model.name)
@@ -645,7 +662,12 @@ def build_predictive_model(config_, run_mode):
         pos_encoding_len=0,
         scale=config_.position_model.scale,
         run_mode=run_mode,
-        autoregressive=False
+        autoregressive=False,
+        pooling=config_.position_model.get("pooling_layer", "last_step"),
+        inp_target_dist_cond=config_.position_model.get("inp_target_dist_cond", False),
+        inp_conditions=config_.position_model.get("inp_conditions", True),
+        n_spatial_encodings=config_.position_model.get("n_spatial_encodings", 0),
+        use_encoder=config_.position_model.get("use_encoder", False),
         )
   
   model_ = PredictiveInkModel(

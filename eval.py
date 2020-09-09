@@ -89,7 +89,8 @@ def main(argv):
       if config.data.data_name == "didi":
         sample_ids = [7, 9, 11, 19]
       elif config.data.data_name == "didi_wo_text":
-        sample_ids = [2, 9, 10, 17, 29, 30, 1, 64, 73]
+        # sample_ids = [1, 2, 30] #[10, 17, 29, 30, 1, 64, 73]
+        sample_ids = [1, 2, 17, 30, 64]
       elif config.data.data_name == "didi_all":
         sample_ids = [5, 19, 28]
       elif config.data.data_name == "didi_wo_text_rdp":

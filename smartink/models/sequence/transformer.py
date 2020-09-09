@@ -101,7 +101,7 @@ def point_wise_feed_forward_network(d_model, dff):
   ])
 
 
-def scaled_dot_product_attention(q, k, v, mask, rel_key_emb=None, rel_val_emb=None):
+def scaled_dot_product_attention(q, k, v, mask, rel_key_emb=None):
   """Calculate the attention weights.
 
   q, k, v must have matching leading dimensions.
@@ -116,19 +116,29 @@ def scaled_dot_product_attention(q, k, v, mask, rel_key_emb=None, rel_val_emb=No
     mask: Float tensor with shape broadcastable to (..., seq_len_q, seq_len_k).
       Defaults to None.
     rel_key_emb:
-    rel_val_emb:
     
   Returns:
     output, attention_weights
   """
-
+    
   matmul_qk = tf.matmul(q, k, transpose_b=True)  # (..., seq_len_q, seq_len_k)
-
+  
   if rel_key_emb is not None:
-    heads = tf.shape(input=q)[1]
-    mh_rel_key_emb = tf.tile(tf.expand_dims(rel_key_emb, axis=1), [1, heads, 1, 1])
-    matmul_qk -= mh_rel_key_emb
-
+    q_expanded = tf.expand_dims(q, axis=2)
+    q_rel = tf.matmul(q_expanded, rel_key_emb, transpose_b=True)
+    q_rel_t = tf.transpose(q_rel, [2, 3, 0, 1, 4])
+    
+    q_len = tf.shape(q)[-2]
+    idx = tf.transpose(tf.stack([tf.range(q_len), tf.range(q_len)]), [1,0])
+    
+    # selected_q_rel_t is of shape (batch_size, n_heads, q_len, q_len, k_len)
+    # We need to select the slices on the diagonal of the 3rd and 4th dimensions.
+    # which corresponds to eye(q_len) selected_q_rel_t[:, :, eye(q_len), :]
+    # and result in selected_q_rel of shape (batch_size, n_heads, q_len, k_len).
+    selected_q_rel_t = tf.gather_nd(q_rel_t, idx)
+    selected_q_rel = tf.transpose(selected_q_rel_t, [1, 2, 0, 3])
+    matmul_qk += selected_q_rel
+    
   # scale matmul_qk
   dk = tf.cast(tf.shape(input=k)[-1], tf.float32)
   scaled_attention_logits = matmul_qk / tf.math.sqrt(dk)
@@ -139,8 +149,7 @@ def scaled_dot_product_attention(q, k, v, mask, rel_key_emb=None, rel_val_emb=No
 
   # softmax is normalized on the last axis (seq_len_k) so that the scores
   # add up to 1.
-  attention_weights = tf.nn.softmax(
-      scaled_attention_logits, axis=-1)  # (..., seq_len_q, seq_len_k)
+  attention_weights = tf.nn.softmax(scaled_attention_logits, axis=-1)  # (..., seq_len_q, seq_len_k)
   output = tf.matmul(attention_weights, v)  # (..., seq_len_q, depth_v)
 
   return output, attention_weights
@@ -179,7 +188,7 @@ class MultiHeadAttention(tf.keras.layers.Layer):
     x = tf.reshape(x, (batch_size, -1, self.num_heads, self.depth))
     return tf.transpose(a=x, perm=[0, 2, 1, 3])
 
-  def call(self, v, k, q, mask, rel_key_emb=None, rel_val_emb=None):
+  def call(self, v, k, q, mask, rel_key_emb=None):
     batch_size = tf.shape(input=q)[0]
 
     q = self.wq(q)  # (batch_size, seq_len, d_model)
@@ -196,13 +205,64 @@ class MultiHeadAttention(tf.keras.layers.Layer):
     # scaled_attention.shape == (batch_size, num_heads, seq_len_q, depth)
     # attention_weights.shape == (batch_size, num_heads, seq_len_q, seq_len_k)
     scaled_attention, attention_weights = scaled_dot_product_attention(
-        q, k, v, mask, rel_key_emb, rel_val_emb)
+        q, k, v, mask, rel_key_emb)
     # (batch_size, seq_len_q, num_heads, depth)
     scaled_attention = tf.transpose(a=scaled_attention, perm=[0, 2, 1, 3])
 
     # (batch_size, seq_len_q, d_model)
     concat_attention = tf.reshape(scaled_attention,
                                   (batch_size, -1, self.d_model))
+    # (batch_size, seq_len_q, d_model)
+    output = self.dense(concat_attention)
+
+    return output, attention_weights
+  
+  
+class MultiHeadAttentionRelative(MultiHeadAttention):
+  """Multi-head attention layer with relative positional encodings."""
+
+  def __init__(self, d_model, num_heads, n_spatial_encodings):
+    super(MultiHeadAttentionRelative, self).__init__(d_model, num_heads)
+    
+    self.n_spatial_encodings = n_spatial_encodings
+    if self.n_spatial_encodings > 0:
+      self.head_d_model = d_model//num_heads
+      self.key_embedding_table = tf.Variable(initial_value=np.random.uniform(-0.1, 0.1, size=[self.n_spatial_encodings, self.d_model]), name="key_embeddings", trainable=True, dtype=tf.float32)
+      # self.value_embedding_table = tf.Variable(initial_value=np.random.uniform(-0.5, 0.5, size=[self.n_spatial_encodings, self.d_model]), name="value_embeddings", trainable=True, dtype=tf.float32)
+
+  def call(self, v, k, q, mask, rel_key_emb=None):
+    # rel_key_emb and rel_val_emb are indices,
+    
+    batch_size = tf.shape(input=q)[0]
+
+    q = self.wq(q)  # (batch_size, seq_len, d_model)
+    k = self.wk(k)  # (batch_size, seq_len, d_model)
+    v = self.wv(v)  # (batch_size, seq_len, d_model)
+
+    # (batch_size, num_heads, seq_len_q, depth)
+    q = self.split_heads(q, batch_size)
+    # (batch_size, num_heads, seq_len_k, depth)
+    k = self.split_heads(k, batch_size)
+    # (batch_size, num_heads, seq_len_v, depth)
+    v = self.split_heads(v, batch_size)
+
+    if self.n_spatial_encodings > 0:
+      # Get the embeddings and reshape into (batch_size, n_heads, seq_len, head_d_model)
+      if rel_key_emb is not None:
+        len1 = tf.shape(rel_key_emb)[1]
+        len2 = tf.shape(rel_key_emb)[2]
+        rel_key_emb = tf.gather(self.key_embedding_table, rel_key_emb)
+        rel_key_emb = tf.transpose(tf.reshape(rel_key_emb, [batch_size, len1, len2, -1, self.head_d_model]), [0, 3, 1, 2, 4])
+
+    # scaled_attention.shape == (batch_size, num_heads, seq_len_q, depth)
+    # attention_weights.shape == (batch_size, num_heads, seq_len_q, seq_len_k)
+    scaled_attention, attention_weights = scaled_dot_product_attention(q, k, v, mask, rel_key_emb)
+    
+    # (batch_size, seq_len_q, num_heads, depth)
+    scaled_attention = tf.transpose(a=scaled_attention, perm=[0, 2, 1, 3])
+
+    # (batch_size, seq_len_q, d_model)
+    concat_attention = tf.reshape(scaled_attention, (batch_size, -1, self.d_model))
     # (batch_size, seq_len_q, d_model)
     output = self.dense(concat_attention)
 
@@ -216,10 +276,14 @@ class EncoderLayer(tf.keras.layers.Layer):
   input embeddings.
   """
 
-  def __init__(self, d_model, num_heads, dff, rate=0.1):
+  def __init__(self, d_model, num_heads, dff, rate=0.1, n_spatial_encodings=0):
     super(EncoderLayer, self).__init__()
-
-    self.mha = MultiHeadAttention(d_model, num_heads)
+    
+    if n_spatial_encodings > 0:
+      self.mha = MultiHeadAttentionRelative(d_model, num_heads, n_spatial_encodings)
+    else:
+      self.mha = MultiHeadAttention(d_model, num_heads)
+      
     self.ffn = point_wise_feed_forward_network(d_model, dff)
 
     self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
@@ -228,9 +292,9 @@ class EncoderLayer(tf.keras.layers.Layer):
     self.dropout1 = tf.keras.layers.Dropout(rate)
     self.dropout2 = tf.keras.layers.Dropout(rate)
 
-  def call(self, x, training, mask):
+  def call(self, x, training, mask, rel_key_emb=None):
     # (batch_size, input_seq_len, d_model)
-    attn_output, _ = self.mha(x, x, x, mask)
+    attn_output, _ = self.mha(x, x, x, mask, rel_key_emb)
     attn_output = self.dropout1(attn_output, training=training)
     # (batch_size, input_seq_len, d_model)
     out1 = self.layernorm1(x + attn_output)
@@ -249,11 +313,15 @@ class DecoderLayer(tf.keras.layers.Layer):
   using the encoder embeddings.
   """
 
-  def __init__(self, d_model, num_heads, dff, rate=0.1):
+  def __init__(self, d_model, num_heads, dff, rate=0.1, n_spatial_encodings=0):
     super(DecoderLayer, self).__init__()
-
-    self.mha1 = MultiHeadAttention(d_model, num_heads)
-    self.mha2 = MultiHeadAttention(d_model, num_heads)
+    
+    if n_spatial_encodings > 0:
+      self.mha1 = MultiHeadAttentionRelative(d_model, num_heads, n_spatial_encodings)
+      self.mha2 = MultiHeadAttentionRelative(d_model, num_heads, n_spatial_encodings)
+    else:
+      self.mha1 = MultiHeadAttention(d_model, num_heads)
+      self.mha2 = MultiHeadAttention(d_model, num_heads)
 
     self.ffn = point_wise_feed_forward_network(d_model, dff)
 
@@ -265,16 +333,15 @@ class DecoderLayer(tf.keras.layers.Layer):
     self.dropout2 = tf.keras.layers.Dropout(rate)
     self.dropout3 = tf.keras.layers.Dropout(rate)
 
-  def call(self, x, enc_output, training, look_ahead_mask, padding_mask, rel_key_emb=None, rel_val_emb=None):
+  def call(self, x, enc_output, training, look_ahead_mask, padding_mask, rel_key_emb=None):
     # enc_output.shape == (batch_size, input_seq_len, d_model)
     # (batch_size, target_seq_len, d_model)
-    attn1, attn_weights_block1 = self.mha1(x, x, x, look_ahead_mask, rel_key_emb, rel_val_emb)
+    attn1, attn_weights_block1 = self.mha1(x, x, x, look_ahead_mask, rel_key_emb)
     attn1 = self.dropout1(attn1, training=training)
     out1 = self.layernorm1(attn1 + x)
 
     # (batch_size, target_seq_len, d_model)
-    attn2, attn_weights_block2 = self.mha2(enc_output, enc_output, out1,
-                                           padding_mask, rel_key_emb, rel_val_emb)
+    attn2, attn_weights_block2 = self.mha2(enc_output, enc_output, out1, padding_mask, rel_key_emb)
     attn2 = self.dropout2(attn2, training=training)
     # (batch_size, target_seq_len, d_model)
     out2 = self.layernorm2(attn2 + out1)
@@ -292,19 +359,19 @@ class TransformerEncoder(tf.keras.layers.Layer):
   Assuming that the inputs are already in the stroke space.
   """
 
-  def __init__(self, num_layers, d_model, num_heads, dff, rate=0.1):
+  def __init__(self, num_layers, d_model, num_heads, dff, rate=0.1, n_spatial_encodings=0):
     super(TransformerEncoder, self).__init__()
 
     self.d_model = d_model
     self.num_layers = num_layers
 
     self.enc_layers = [
-        EncoderLayer(d_model, num_heads, dff, rate) for _ in range(num_layers)
+        EncoderLayer(d_model, num_heads, dff, rate, n_spatial_encodings) for _ in range(num_layers)
     ]
 
     self.dropout = tf.keras.layers.Dropout(rate)
 
-  def call(self, x, training, mask, pos_encoding=None, scale=False, **kwargs):
+  def call(self, x, training, mask, pos_encoding=None, scale=False, rel_key_emb=None, **kwargs):
     if scale:
       x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
     if pos_encoding is not None:
@@ -313,7 +380,7 @@ class TransformerEncoder(tf.keras.layers.Layer):
 
     x = self.dropout(x, training=training)
     for i in range(self.num_layers):
-      x = self.enc_layers[i](x, training, mask)
+      x = self.enc_layers[i](x, training, mask, rel_key_emb)
 
     return x  # (batch_size, input_seq_len, d_model)
 
@@ -324,14 +391,14 @@ class TransformerDecoder(tf.keras.layers.Layer):
   Assuming that the inputs are already in the stroke space.
   """
 
-  def __init__(self, num_layers, d_model, num_heads, dff, rate=0.1):
+  def __init__(self, num_layers, d_model, num_heads, dff, rate=0.1, n_spatial_encodings=0):
     super(TransformerDecoder, self).__init__()
 
     self.d_model = d_model
     self.num_layers = num_layers
 
     self.dec_layers = [
-        DecoderLayer(d_model, num_heads, dff, rate) for _ in range(num_layers)
+        DecoderLayer(d_model, num_heads, dff, rate, n_spatial_encodings) for _ in range(num_layers)
     ]
     self.dropout = tf.keras.layers.Dropout(rate)
 
@@ -344,7 +411,6 @@ class TransformerDecoder(tf.keras.layers.Layer):
            pos_encoding=None,
            scale=False,
            rel_key_emb=None,
-           rel_val_emb=None,
            **kwargs):
     attention_weights = {}
 
@@ -358,7 +424,7 @@ class TransformerDecoder(tf.keras.layers.Layer):
     for i in range(self.num_layers):
       x, block1, block2 = self.dec_layers[i](x, enc_output, training,
                                              look_ahead_mask, padding_mask,
-                                             rel_key_emb, rel_val_emb)
+                                             rel_key_emb)
       attention_weights["decoder_layer{}_block1".format(i + 1)] = block1
       attention_weights["decoder_layer{}_block2".format(i + 1)] = block2
 
@@ -461,6 +527,10 @@ class TransformerSeq2seqConditional(BaseModel):
                pos_encoding_len=0,
                autoregressive=False,
                pooling="last_step",
+               use_encoder=False,
+               inp_target_dist_cond=False,
+               inp_conditions=True,
+               n_spatial_encodings=0,
                **kwargs):
     super(TransformerSeq2seqConditional, self).__init__(
         config_loss=config_loss, run_mode=run_mode, **kwargs)
@@ -469,25 +539,43 @@ class TransformerSeq2seqConditional(BaseModel):
     self.pos_encoding_len = pos_encoding_len
     self.scale = scale
     self.autoregressive = autoregressive
+    self.use_encoder = use_encoder
+    
+    self.dec_input_layer = DenseLayers([d_model])
 
-    self.input_layer = DenseLayers([d_model])
-    # self.condition_layer = DenseLayers([d_model, d_model])
-    # self.mha = MultiHeadAttention(d_model, num_heads)
-    # self.encoder = TransformerEncoder(num_layers, d_model, num_heads, dff, rate)
-    self.encoder = TransformerDecoder(num_layers, d_model, num_heads, dff, rate)
-    self.decoder = DenseLayers([512,256], output_activation=tf.keras.activations.relu)
+    self.encoder = None
+    if self.use_encoder:
+      self.enc_input_layer = DenseLayers([d_model])
+      self.encoder = TransformerEncoder(num_layers, d_model, num_heads, dff, rate, n_spatial_encodings)
+      # self.encoder = TransformerEncoder(num_layers, d_model, num_heads, dff, rate)
+    # self.decoder = TransformerDecoder(num_layers, d_model, num_heads, dff, rate, n_spatial_encodings)
+    self.decoder = TransformerDecoder(num_layers, d_model, num_heads, dff, rate)
+    self.decoder_out = DenseLayers([512,256], output_activation=tf.keras.activations.relu)
 
     self.pos_encoding = None
     if pos_encoding_len > 0:
       self.pos_encoding = positional_encoding(pos_encoding_len, d_model)
-
+    
     if pooling == "last_step":
       self.pooling_layer = self.pool_last_step
     elif pooling == "mean":
       self.pooling_layer = self.pool_mean
     else:
       self.pooling_layer = None
-
+    
+    # Whether to concatenate the stroke positions (i.e., input_cond and target_cond)
+    # with the model inputs (i.e., stroke embeddings) or not.
+    self.inp_conditions = inp_conditions
+    
+    # Whether to concatenate the Euclidean distance between the target stroke
+    # position and the start positions of the existing strokes.
+    self.inp_target_dist_cond = inp_target_dist_cond
+    
+    # Relative positional encodings based on pairwise spatial distance.
+    self.n_spatial_encodings = n_spatial_encodings
+    if self.n_spatial_encodings > 0:
+      self.dist_boundaries = np.arange(0, 1, 1./self.n_spatial_encodings)[1:].tolist()
+    
     # Deterministic or stochastic outputs.
     self.output_layer = None
     if self.output_size > 0:
@@ -535,7 +623,7 @@ class TransformerSeq2seqConditional(BaseModel):
       out.append(tf.cos(pi_constant*inputs))
     return tf.concat(out, axis=-1)
 
-  def distance_matrix_batch(self, array1, array2):
+  def distance_matrix_batch(self, array1, array2, norm_ord='euclidean'):
     """
     arguments:
         array1: the array, size: (batch_size, num_point, num_feature)
@@ -552,9 +640,44 @@ class TransformerSeq2seqConditional(BaseModel):
         tf.tile(tf.expand_dims(array2, 2),
                 (1, 1, num_point, 1)),
         (batch_size, -1, num_features))
-    distances = tf.norm(tensor=expanded_array1 - expanded_array2, axis=-1)
+    if norm_ord == "diff":  # num_features must be 1.
+      distances = expanded_array1 - expanded_array2
+    else:
+      distances = tf.norm(tensor=expanded_array1 - expanded_array2, axis=-1, ord=norm_ord)
     distances = tf.reshape(distances, (batch_size, num_point, num_point))
     return distances
+  
+  def normalized_pairwise_distances_l2(self, samples, seq_len):
+    """
+    Args:
+      samples: (batch_size, seq_len, feature_dim)
+      seq_len: in case samples are padded.
+    Returns:
+    """
+    pairwise_dist = self.distance_matrix_batch(samples, samples)
+    mask_ = tf.expand_dims((1-tf.cast(tf.sequence_mask(seq_len), tf.float32))*1e6, axis=-1)
+    min_xy = tf.reduce_min(samples+mask_, axis=1)
+    max_xy = tf.reduce_max(samples-mask_, axis=1)
+    range_l2 = tf.norm(max_xy - min_xy, axis=1)
+    return pairwise_dist/range_l2[:, tf.newaxis, tf.newaxis]
+  
+  def normalized_pairwise_distances_block(self, samples, seq_len):
+    """
+    Args:
+      samples: (batch_size, seq_len, feature_dim)
+      seq_len: in case samples are padded.
+    Returns:
+    """
+    pairwise_dist_x = self.distance_matrix_batch(samples[:, :, 0:1], samples[:, :, 0:1], norm_ord="diff")
+    pairwise_dist_y = self.distance_matrix_batch(samples[:, :, 1:2], samples[:, :, 1:2], norm_ord="diff")
+    pairwise_dist = tf.concat([tf.expand_dims(pairwise_dist_x, axis=-1), tf.expand_dims(pairwise_dist_y, axis=-1)], axis=-1)
+    
+    mask_ = tf.expand_dims((1-tf.cast(tf.sequence_mask(seq_len), tf.float32))*1e6, axis=-1)
+    min_xy = tf.reduce_min(samples+mask_, axis=1)
+    max_xy = tf.reduce_max(samples-mask_, axis=1)
+    range_block = max_xy - min_xy
+    return pairwise_dist/(range_block[:, tf.newaxis, tf.newaxis, :])
+    
   
   def call(self, inputs, training=False, **kwargs):
     seq_len = inputs["seq_len"]
@@ -567,39 +690,73 @@ class TransformerSeq2seqConditional(BaseModel):
       encoder_mask = tf.maximum(enc_padding_mask, look_ahead_mask)
     else:
       encoder_mask = enc_padding_mask
-
-    if target_cond is not None:
-      n_input = tf.shape(input=input_cond)[1]
-      target_cond_inp = tf.tile(target_cond, [1, n_input, 1])
-      enc_inp = tf.concat([input_seq, input_cond, target_cond_inp], axis=-1)
-    else:
-      enc_inp = tf.concat([input_seq, input_cond], axis=-1)
-
-    # rel_key_emb = tf.expand_dims(tf.matmul(input_cond, input_cond, transpose_b=True), axis=-1)
-    # rel_key_emb = self.distance_matrix_batch(input_cond, input_cond)
-    rel_key_emb = None
-    rel_val_emb = None
     
-    enc_inp = self.input_layer(enc_inp)
-    enc_output, attn_weights = self.encoder(
-        enc_inp,
-        enc_inp,
+    # Are we gonna concatenate the inputs with a given condition? In our case,
+    # the inputs are the existing embeddings and the conditions can be the start
+    # position of the given strokes and/or the start position of the target stroke.
+    concat_cond = None
+    if self.inp_conditions:
+      concat_cond = input_cond
+      
+      if target_cond is not None:
+        n_input = tf.shape(input=input_cond)[1]
+        target_cond_inp = tf.tile(target_cond, [1, n_input, 1])
+        if self.inp_target_dist_cond:
+          target_dist_cond = tf.norm(input_cond - target_cond, axis=-1, keepdims=True)
+          concat_cond = tf.concat([input_cond, target_cond_inp, target_dist_cond], axis=-1)
+        else:
+          concat_cond = tf.concat([input_cond, target_cond_inp], axis=-1)
+
+    rel_dist_idx=None
+    if self.n_spatial_encodings > 0:
+      # If we use relative positional encodings, we don't want any conditions
+      # appended to the inputs (for now).
+      concat_cond = None
+      # Calculate the Euclidean distances between the strokes, normalize and
+      # fetch the corresponding (trainable) encodings. They are like the tokens
+      # in NLP. Here we "tokenize" the L2-distance.
+      normalized_dist = self.normalized_pairwise_distances(input_cond, seq_len)
+      rel_dist_idx = tf.raw_ops.Bucketize(input=normalized_dist, boundaries=self.dist_boundaries)
+      
+      if self.inp_conditions is False and self.inp_target_dist_cond and target_cond is not None:
+        target_dist_cond = tf.norm(input_cond - target_cond, axis=-1, keepdims=True)
+        concat_cond = target_dist_cond
+
+    dec_input_seq = input_seq
+    if concat_cond is not None:
+      dec_input_seq = tf.concat([input_seq, concat_cond], axis=-1)
+    dec_input_seq = self.dec_input_layer(dec_input_seq)
+    
+    if self.use_encoder:
+      enc_input_seq = input_seq
+      if concat_cond is not None:
+        enc_input_seq = tf.concat([input_seq, concat_cond], axis=-1)
+      
+      enc_input_seq = self.enc_input_layer(enc_input_seq)
+      tr_enc_out = self.encoder(
+          enc_input_seq,
+          training,
+          encoder_mask,
+          pos_encoding=self.pos_encoding,
+          scale=self.scale,
+          rel_key_emb=rel_dist_idx)
+    else:
+      tr_enc_out = dec_input_seq
+
+    tr_dec_out, attn_weights = self.decoder(
+        dec_input_seq[:, :2],
+        tr_enc_out,
         training,
         encoder_mask,
         encoder_mask,
         pos_encoding=self.pos_encoding,
         scale=self.scale,
-        rel_key_emb=rel_key_emb,
-        rel_val_emb=rel_val_emb)
+        rel_key_emb=None)
     
     if self.pooling_layer is not None:
-      enc_output = self.pooling_layer(enc_output, seq_len)
+      tr_dec_out = self.pooling_layer(tr_dec_out, seq_len)
       
-    dec_inp = enc_output
-    if target_cond is not None:
-      dec_inp = tf.concat([dec_inp, target_cond], axis=-1)
-      
-    representation = self.decoder(dec_inp[:, 0])
+    representation = self.decoder_out(tr_dec_out[:, 0])
 
     # (batch_size, tar_seq_len, target_vocab_size)
     model_out = self.output_layer(representation)
