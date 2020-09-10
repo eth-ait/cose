@@ -56,6 +56,7 @@ class TFRecordStroke(Dataset):
     self.reverse_prob = kwargs.get("reverse_prob", 0)
     self.random_noise_factor = kwargs.get("random_noise_factor", 0)
     self.pos_noise_factor = kwargs.get("pos_noise_factor", 0)
+    self.normalize_start_pos = kwargs.get("normalize_start_pos", False)
     
     self.rdp = kwargs.get("rdp", False)
     self.rdp_didi_pp = kwargs.get("rdp_didi_pp", False)
@@ -190,10 +191,16 @@ class TFRecordStroke(Dataset):
     self.tf_data = self.tf_data.map(
         functools.partial(
             self.normalize_zero_mean_unit_variance_channel, key="ink"))
+    
     if self.gt_targets and (self.resampling_factor > 1 or self.random_noise_factor > 0 or self.t_drop_ratio > 0):
       self.tf_data = self.tf_data.map(
           functools.partial(
               self.normalize_zero_mean_unit_variance_channel, key="target_ink"))
+      
+    if self.normalize_start_pos:
+      self.tf_data = self.tf_data.map(
+          functools.partial(self.normalize_start_coord),
+          num_parallel_calls=self.num_parallel_calls)
 
   def tf_data_to_model(self):
     """Converts the data into the format that a model expects.
@@ -625,6 +632,11 @@ class TFRecordStroke(Dataset):
     tmp_ = sample["ink"][:, :, 0:2] * sample["ink"][:, :, 3:4]
     sample[C.INP_END_COORD] = tf.reduce_sum(input_tensor=tmp_, axis=1, keepdims=True)
     return sample
+    
+  def normalize_start_coord(self, sample):
+    """0-mean, unit-variance normalization on the start coordinates."""
+    sample[C.INP_START_COORD] = (sample[C.INP_START_COORD] - self.mean_start_pos)/self.std_start_pos
+    return sample
 
   def pp_translate_to_origin(self, sample):
     """Translate strokes to origin."""
@@ -744,6 +756,10 @@ class TFRecordStroke(Dataset):
       abs_ink_batch = ink_batch
     # Translate.
     if (self.pp_to_origin or self.pp_relative_pos) and start_point is not None:
+      
+      if self.normalize_start_pos:
+        start_point = start_point*self.std_start_pos + self.mean_start_pos
+      
       # Insert the start point back as we don't predict it.
       abs_ink_batch = np.concatenate(
           [np.zeros_like(abs_ink_batch[:, 0:1]), abs_ink_batch], axis=1)
@@ -779,6 +795,10 @@ class TFRecordStroke(Dataset):
     abs_ink_batch = tf.cast(abs_ink_batch, tf.float32)
     # Translate.
     if (self.pp_to_origin or self.pp_relative_pos) and start_point is not None:
+      
+      if self.normalize_start_pos:
+        start_point = start_point*self.std_start_pos + self.mean_start_pos
+      
       # Insert the start point back as we don't predict it.
       abs_ink_batch = tf.concat(
           [tf.zeros_like(abs_ink_batch[:, 0:1]), abs_ink_batch], axis=1)
@@ -1460,15 +1480,16 @@ if __name__ == "__main__":
       meta_data_path=DATA_DIR + META_FILE,
       batch_size=1,
       shuffle=True,
-      normalize=False,
+      normalize=True,
       pp_to_origin=True,
       pp_relative_pos=False,
+      normalize_start_pos=True,
       run_mode=C.RUN_EAGER,
       max_length_threshold=201,
       fixed_len=False,
       mask_pen=False,
 
-      affine_prob=0,
+      affine_prob=0.3,
       reverse_prob=0,
       scale_factor=0,
       resampling_factor=0,
@@ -1509,9 +1530,48 @@ if __name__ == "__main__":
       key_ = str(sample_id)
       target_batch_np = dict_tf_to_numpy(target_batch)
       vis_engine.vis_stroke(target_batch_np, "sample_" + key_)
-      
+
       if sample_id == 5:
         break
-        
+
   except tf.errors.OutOfRangeError:
     pass
+
+#   coords = []
+#   for i in range(40):
+#     try:
+#       while True:
+#         sample_id += 1
+#         input_batch, target_batch = train_data.get_next()
+#
+#         coords.append(target_batch["start_coord"].numpy())
+#     except tf.errors.OutOfRangeError:
+#       train_data.make_one_shot_iterator()
+#
+#   all_pos = np.vstack(coords)
+#   mean_xy = all_pos.mean(0)
+#   std_xy = all_pos.std(0)
+#   min_xy = all_pos.min(0)
+#   max_xy = all_pos.max(0)
+#
+#   print("# Samples: ", str(all_pos.shape[0]))
+#   print("Mean: ", str(mean_xy))
+#   print("Std: ", str(std_xy))
+#   print("Min: ", str(min_xy))
+#   print("Max: ", str(max_xy))
+#
+#   print("")
+#
+#   """
+# # Samples:  45211
+# Mean:  [[0.39129615 0.19466704]]
+# Std:  [[1.4655312 0.8722587]]
+# Min:  [[-11.816991 -11.02015 ]]
+# Max:  [[20.484142 13.167125]]
+#
+# # Samples:  904220
+# Mean:  [[0.36430594 0.18911052]]
+# Std:  [[1.4815438 0.8614105]]
+# Min:  [[-21.639597 -19.189264]]
+# Max:  [[22.63315  20.910751]]
+#   """

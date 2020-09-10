@@ -60,6 +60,10 @@ class Dataset(object):
       self.std_all = np.sqrt(self.meta_data[C.VAR_ALL])
       self.mean_channel = self.meta_data[C.MEAN_CHANNEL]
       self.std_channel = np.sqrt(self.meta_data[C.VAR_CHANNEL])
+
+      self.mean_start_pos = self.meta_data.get("mean_start_pos", np.array([0]))
+      self.std_start_pos = self.meta_data.get("std_start_pos", np.array([1]))
+      
       self.tf_data_normalization()
     
     self.tf_data_to_model()

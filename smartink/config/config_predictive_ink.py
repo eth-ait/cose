@@ -60,6 +60,7 @@ def define_flags():
   flags.DEFINE_boolean("rdp_dataset", False, "whether to use shorter rdp version or the full.")
   flags.DEFINE_boolean("rdp_didi_pp", False, "whether to apply didi preprocessing or not.")
   flags.DEFINE_float("pos_noise_factor", 0, "Amount of noise multiplier for the initial positions.")
+  flags.DEFINE_bool("normalize_start_pos", False, "")
   
   # Experiment details
   flags.DEFINE_integer("batch_size", 100, "batch size for training")
@@ -206,6 +207,7 @@ def get_config(FLAGS, experiment_id=None):
       pp_to_origin="position" in FLAGS.metadata_type,
       pp_relative_pos="velocity" in FLAGS.metadata_type,
       normalize=not FLAGS.skip_normalization,
+      normalize_start_pos=not FLAGS.normalize_start_pos,
       batch_size=FLAGS.batch_size,
       max_length_threshold=201,
       mask_pen=FLAGS.mask_encoder_pen,
@@ -699,6 +701,7 @@ def build_dataset(config_, run_mode=C.RUN_STATIC, split=C.DATA_TRAIN):
         pp_to_origin=config_.data.pp_to_origin,
         pp_relative_pos=config_.data.pp_relative_pos,
         normalize=config_.data.normalize,
+        normalize_start_pos=config_.data.normalize_start_pos,
         shuffle=True,
         run_mode=run_mode,
         max_length_threshold=config_.data.max_length_threshold,
@@ -724,6 +727,7 @@ def build_dataset(config_, run_mode=C.RUN_STATIC, split=C.DATA_TRAIN):
         pp_to_origin=config_.data.pp_to_origin,
         pp_relative_pos=config_.data.pp_relative_pos,
         normalize=config_.data.normalize,
+        normalize_start_pos=config_.data.normalize_start_pos,
         shuffle=False,
         run_mode=run_mode,
         max_length_threshold=config_.data.max_length_threshold,
@@ -740,6 +744,7 @@ def build_dataset(config_, run_mode=C.RUN_STATIC, split=C.DATA_TRAIN):
         pp_to_origin=config_.data.pp_to_origin,
         pp_relative_pos=config_.data.pp_relative_pos,
         normalize=config_.data.normalize,
+        normalize_start_pos=config_.data.normalize_start_pos,
         shuffle=False,
         max_length_threshold=config_.data.max_length_threshold,
         run_mode=run_mode,
