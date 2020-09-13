@@ -580,7 +580,7 @@ class EvalEngine(object):
       if self.model.position_model is not None:
         self.__predict_position_ar(input_batch, target_batch, embeddings, idx)
         # self.__predict_position_ar_infinite_canvas(input_batch, target_batch, embeddings, idx)
-        self.__predict_position_ar_with_attention(input_batch, target_batch, embeddings, idx)
+        # self.__predict_position_ar_with_attention(input_batch, target_batch, embeddings, idx)
         # self.__predict_position_ar_alternatives(input_batch, target_batch, embeddings, idx)
 
     elapsed_time = (time.perf_counter() - start_time) / len(sample_ids)
@@ -803,10 +803,18 @@ class EvalEngine(object):
     # Auto-regressive prediction.
     n_strokes = target_batch["num_strokes"][0]
     n_strokes += 10
-    context_ids = 2
+    context_ids = target_batch["num_strokes"][0] // 2
+    
     context_embeddings = embeddings[:, :context_ids]
     start_positions = np.transpose(target_batch[C.INP_START_COORD], [1, 0, 2])
     end_positions = np.transpose(target_batch[C.INP_END_COORD], [1, 0, 2])
+
+    # self.vis_engine.log_dir
+    log_dir_backup = self.vis_engine.log_dir
+    # self.vis_engine.log_dir = os.path.join(self.vis_engine.log_dir, "given_1")
+    self.vis_engine.log_dir = os.path.join(self.vis_engine.log_dir, "given_half")
+    if not os.path.exists(self.vis_engine.log_dir):
+      os.mkdir(self.vis_engine.log_dir)
     
     # ar_start_pos = [start_positions[:, 0:1], start_positions[:, 1:2]]
     # ar_end_pos = [end_positions[:, 0:1], end_positions[:, 1:2]]
@@ -864,6 +872,10 @@ class EvalEngine(object):
       x_max = max(x_max, pred_x_max)
       y_min = min(y_min, pred_y_min)
       y_max = max(y_max, pred_y_max)
+      
+      # Render GT strokes in context.
+      predicted_strokes[:context_ids] = gt_strokes[:context_ids]
+      
       fig, ax = render_strokes(predicted_strokes, colors=stoke_colors, x_borders=(x_min, x_max), y_borders=(y_min, y_max), highlight_start=self.render_initial_point)
       
       if self.render_position_heatmap:
@@ -896,13 +908,14 @@ class EvalEngine(object):
         # plt.colorbar()
         # pos_str = "{:.2f}, {:.2f}".format(target_pos[0, 0, 0], -target_pos[0, 0, 1])
         # ax.text(target_pos[0, 0, 0], -target_pos[0, 0, 1], pos_str, fontsize=20, ha='center', va='center', color='k') # plt_stroke[0].get_color())
-  
-      fig.savefig(os.path.join(self.vis_engine.log_dir, "{}_pos_ar_heatmap_ordered_s{}.png".format(sample_idx, str(stroke_i))), format="png", bbox_inches='tight', dpi=200)
+
+      fig.savefig(os.path.join(self.vis_engine.log_dir, "{}_pos_ar_ordered_s{}.png".format(sample_idx, str(stroke_i))), format="png", bbox_inches='tight', dpi=200)
+      # fig.savefig(os.path.join(self.vis_engine.log_dir, "{}_pos_ar_heatmap_ordered_s{}.png".format(sample_idx, str(stroke_i))), format="png", bbox_inches='tight', dpi=200)
       # fig.savefig(os.path.join(self.vis_engine.log_dir, "{}_pos_ar_heatmap_ordered_s{}.svg".format(sample_idx, str(stroke_i))), format="svg", bbox_inches='tight', dpi=200)
       plt.close()
 
-    np.save(os.path.join(self.vis_engine.log_dir, "data_{}_pos_ar_all".format(sample_idx)), predicted_strokes)
-    
+    np.save(os.path.join(self.vis_engine.log_dir, "data_{}_pos_ar".format(sample_idx)), predicted_strokes)
+
     if self.save_video:
       # Animate AR predictions.
       stroke_colors = [self.prediction_color]*(stroke_i + 1)
@@ -912,6 +925,8 @@ class EvalEngine(object):
       self.vis_engine.animate = True
       self.vis_engine.vis_stroke(predicted_batch, save_name="{}_pos_ar_predicted_ordered_animation_s{}".format(sample_idx, str(stroke_i)), colors=stroke_colors)
       self.vis_engine.animate = False
+
+    self.vis_engine.log_dir = log_dir_backup
       
       
   def __predict_position_ar_alternatives(self, input_batch, target_batch, embeddings, sample_idx):
@@ -1016,7 +1031,7 @@ class EvalEngine(object):
         
         # plt.colorbar()
         fig.savefig(os.path.join(self.vis_engine.log_dir, (plot_name + ".png").format(sample_idx, str(stroke_i))), format="png", bbox_inches='tight', dpi=200)
-        fig.savefig(os.path.join(self.vis_engine.log_dir, (plot_name + ".svg").format(sample_idx, str(stroke_i))), format="svg", bbox_inches='tight', dpi=200)
+        # fig.savefig(os.path.join(self.vis_engine.log_dir, (plot_name + ".svg").format(sample_idx, str(stroke_i))), format="svg", bbox_inches='tight', dpi=200)
         return fig, ax
 
       # b_plot_name = "{}_pos_ar_heatmap_ordered_s{}_best_pos"
@@ -1079,12 +1094,12 @@ class EvalEngine(object):
     
     # Auto-regressive prediction.
     n_strokes = target_batch["num_strokes"][0]
-    n_strokes += 10
-    context_ids = 2
+    n_strokes += 7
+    context_ids = n_strokes // 3
     context_embeddings = embeddings[:, :context_ids]
     start_positions = np.transpose(target_batch[C.INP_START_COORD], [1, 0, 2])
     end_positions = np.transpose(target_batch[C.INP_END_COORD], [1, 0, 2])
-
+    
     # ar_start_pos = [start_positions[:, 0:1], start_positions[:, 1:2]]
     # ar_end_pos = [end_positions[:, 0:1], end_positions[:, 1:2]]
     ar_start_pos = np.split(start_positions[:, 0:context_ids], context_ids, axis=1)
@@ -1150,7 +1165,22 @@ class EvalEngine(object):
       fig, ax = render_strokes(predicted_strokes, colors=stoke_colors, x_borders=(x_min, x_max), y_borders=(y_min, y_max), highlight_start=self.render_initial_point)
       plt.plot(target_pos[0, 0, 0], -target_pos[0, 0, 1], 'ro', lw=3, markersize=8, color=self.prediction_color)
   
-      fig.savefig(os.path.join(self.vis_engine.log_dir, "{}_pos_ar_attention_ordered_s{}_all_avg.png".format(sample_idx, stroke_i)), format="png", bbox_inches='tight', dpi=200)
+      fig.savefig(os.path.join(self.vis_engine.log_dir, "{}_pos_ar_attention_ordered_s{}_emb_all_avg.png".format(sample_idx, stroke_i)), format="png", bbox_inches='tight', dpi=200)
+      # fig.savefig(os.path.join(self.vis_engine.log_dir, "{}_pos_ar_attention_ordered_s{}_all_avg.svg".format(sample_idx, stroke_i)), format="svg", bbox_inches='tight', dpi=200)
+      plt.close()
+      
+      # Average all attention weights across the model and color the strokes
+      # wrt the attention weights.
+      all_weights = tf.concat(list(pos_["attention_weights"].values()), axis=1)
+      probs = tf.reduce_mean(all_weights, axis=1)[0, -1].numpy()
+      probs = np.exp(20*probs)/np.exp(20*probs).sum()  # Rescaled for the colormap.
+      stoke_colors = cmap(probs).tolist()
+      stoke_colors.append(self.prediction_color)
+      
+      fig, ax = render_strokes(predicted_strokes, colors=stoke_colors, x_borders=(x_min, x_max), y_borders=(y_min, y_max), highlight_start=self.render_initial_point)
+      plt.plot(target_pos[0, 0, 0], -target_pos[0, 0, 1], 'ro', lw=3, markersize=8, color=self.prediction_color)
+  
+      fig.savefig(os.path.join(self.vis_engine.log_dir, "{}_pos_ar_attention_ordered_s{}_pos_all_avg.png".format(sample_idx, stroke_i)), format="png", bbox_inches='tight', dpi=200)
       # fig.savefig(os.path.join(self.vis_engine.log_dir, "{}_pos_ar_attention_ordered_s{}_all_avg.svg".format(sample_idx, stroke_i)), format="svg", bbox_inches='tight', dpi=200)
       plt.close()
 
@@ -1194,13 +1224,11 @@ class EvalEngine(object):
     
     # Auto-regressive prediction.
     n_strokes = target_batch["num_strokes"][0]
-    n_strokes += 10
-    context_ids = 4
+    n_strokes += 15
+    context_ids = 2
     context_embeddings = embeddings[:, :context_ids]
     start_positions = np.transpose(target_batch[C.INP_START_COORD], [1, 0, 2])
     end_positions = np.transpose(target_batch[C.INP_END_COORD], [1, 0, 2])
-
-    # start_positions = start_positions - start_positions.min(1)
     
     # ar_start_pos = [start_positions[:, 0:1], start_positions[:, 1:2]]
     # ar_end_pos = [end_positions[:, 0:1], end_positions[:, 1:2]]
@@ -1214,20 +1242,25 @@ class EvalEngine(object):
         input_pos = np.concatenate([input_pos, end_pos], axis=-1)
       
       # Mask canvas.
-      canvas_mask = np.arange(stroke_i) >= (stroke_i - 30)
-      masked_input_pos = input_pos[:, canvas_mask]
+      canvas_mask = np.arange(stroke_i) >= (stroke_i - 6)
       masked_context_embeddings = context_embeddings.numpy()[:, canvas_mask]
-      mask_offset = masked_input_pos[0].min(0)
-      mask_offset = np.zeros_like(mask_offset)
-      masked_input_pos = masked_input_pos - mask_offset
+      masked_input_pos = input_pos[:, canvas_mask]
+      mask_offset = np.zeros([1,1,2])
+      
+      if stroke_i > 6:
+        all_start_pos = np.concatenate(ar_start_pos, axis=1)
+        ignored = all_start_pos[:, np.invert(canvas_mask)][0]
+        mask_offset = ignored.max(0)
+        # mask_offset[0] = 0
+        # mask_offset = masked_input_pos.min(1)
+        # mask_offset[0, 0] = 0
+        masked_input_pos = masked_input_pos - mask_offset
+        
       
       pos_ = self.model.predict_position_ar(masked_context_embeddings,
                                             inp_pos=masked_input_pos,
                                             greedy=self.emb_greedy)
-
       target_pos = np.expand_dims(pos_["position_sample"].numpy(), axis=0)
-      target_pos += mask_offset
-      ar_start_pos.append(target_pos)
 
       out_ = self.model.predict_embedding_ar(masked_context_embeddings,
                                              inp_pos=masked_input_pos,
@@ -1236,6 +1269,9 @@ class EvalEngine(object):
       
       context_embeddings = tf.concat([context_embeddings, tf.expand_dims(out_["embedding_sample"], axis=0)], axis=1)
       emb_ = context_embeddings[0].numpy()
+
+      target_pos += mask_offset
+      ar_start_pos.append(target_pos)
 
       # seq_len = target_batch["seq_len"][:stroke_i + 1]
       seq_len = np.array([self.decoded_length]*(stroke_i + 1))
@@ -1266,14 +1302,15 @@ class EvalEngine(object):
       # wrt the attention weights.
       stroke_colors = np.array(["y"]*stroke_i)
       stroke_colors[canvas_mask] = "k"
+      # stroke_colors = np.array(["k"]*min(5, stroke_i))
       stroke_colors = stroke_colors.tolist()
       stroke_colors.append(self.prediction_color)
       
       fig, ax = render_strokes(predicted_strokes, colors=stroke_colors, x_borders=(x_min, x_max), y_borders=(y_min, y_max), highlight_start=self.render_initial_point)
       plt.plot(target_pos[0, 0, 0], -target_pos[0, 0, 1], 'ro', lw=3, markersize=8, color=self.prediction_color)
   
-      # fig.savefig(os.path.join(self.vis_engine.log_dir, "{}_pos_ar_masked_s{}_all_avg.png".format(sample_idx, stroke_i)), format="png", bbox_inches='tight', dpi=200)
-      fig.savefig(os.path.join(self.vis_engine.log_dir, "{}_pos_ar_masked_s{}_all_avg.svg".format(sample_idx, stroke_i)), format="svg", bbox_inches='tight', dpi=200)
+      fig.savefig(os.path.join(self.vis_engine.log_dir, "{}_pos_ar_masked_s{}_all_avg.png".format(sample_idx, stroke_i)), format="png", bbox_inches='tight', dpi=200)
+      # fig.savefig(os.path.join(self.vis_engine.log_dir, "{}_pos_ar_masked_s{}_all_avg.svg".format(sample_idx, stroke_i)), format="svg", bbox_inches='tight', dpi=200)
       plt.close()
       
     np.save(os.path.join(self.vis_engine.log_dir, "data_{}_pos_ar_masked_all".format(sample_idx)), predicted_strokes)
