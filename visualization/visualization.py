@@ -80,7 +80,7 @@ def animate_strokes(strokes, x_borders=None, y_borders=None, colors=None):
   line_borders = []  # Start and end index of a stroke in the entire drawing.
   current_len = 0
   for i, stroke in enumerate(strokes):
-    color = colors[i] if colors is not None else None
+    color = colors[i] if colors is not None else mpl.cm.tab20.colors[i%20]
     line_borders.append((current_len, current_len + stroke.shape[0]))
     lines.append(ax.plot([], [], lw=2, color=color)[0])
     current_len += stroke.shape[0] + 1
