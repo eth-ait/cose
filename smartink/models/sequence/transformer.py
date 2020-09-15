@@ -227,7 +227,7 @@ class MultiHeadAttentionRelative(MultiHeadAttention):
     self.n_spatial_encodings = n_spatial_encodings
     if self.n_spatial_encodings > 0:
       self.head_d_model = d_model//num_heads
-      self.key_embedding_table = tf.Variable(initial_value=np.random.uniform(-0.1, 0.1, size=[self.n_spatial_encodings, self.d_model]), name="key_embeddings", trainable=True, dtype=tf.float32)
+      self.key_embedding_table = tf.Variable(initial_value=np.random.uniform(-0.01, 0.01, size=[self.n_spatial_encodings, self.d_model]), name="key_embeddings", trainable=True, dtype=tf.float32)
       # self.value_embedding_table = tf.Variable(initial_value=np.random.uniform(-0.5, 0.5, size=[self.n_spatial_encodings, self.d_model]), name="value_embeddings", trainable=True, dtype=tf.float32)
 
   def call(self, v, k, q, mask, rel_key_emb=None):
@@ -531,6 +531,8 @@ class TransformerSeq2seqConditional(BaseModel):
                inp_target_dist_cond=False,
                inp_conditions=True,
                n_spatial_encodings=0,
+               encoder_input_layer=None,
+               encoder=None,
                **kwargs):
     super(TransformerSeq2seqConditional, self).__init__(
         config_loss=config_loss, run_mode=run_mode, **kwargs)
@@ -545,8 +547,10 @@ class TransformerSeq2seqConditional(BaseModel):
 
     self.encoder = None
     if self.use_encoder:
-      self.enc_input_layer = DenseLayers([d_model])
-      self.encoder = TransformerEncoder(num_layers, d_model, num_heads, dff, rate, n_spatial_encodings)
+      # self.enc_input_layer = DenseLayers([d_model])
+      # self.encoder = TransformerEncoder(num_layers, d_model, num_heads, dff, rate, n_spatial_encodings)
+      self.enc_input_layer = encoder_input_layer
+      self.encoder = encoder
       # self.encoder = TransformerEncoder(num_layers, d_model, num_heads, dff, rate)
     # self.decoder = TransformerDecoder(num_layers, d_model, num_heads, dff, rate, n_spatial_encodings)
     self.decoder = TransformerDecoder(num_layers, d_model, num_heads, dff, rate)
@@ -685,6 +689,15 @@ class TransformerSeq2seqConditional(BaseModel):
     input_cond = inputs["input_cond"]
     input_seq = inputs["input_seq"]
     enc_padding_mask = create_padding_mask(input_seq[:, :, 0], seq_len)
+    
+    using_end_pos = False
+    if input_cond.shape[-1] == 4:
+      print("Using End Position.")
+      using_end_pos = True
+      start_pos = input_cond[:, :, 0:2]
+      end_pos = input_cond[:, :, 2:4]
+      input_cond = start_pos
+      
     if self.autoregressive:
       look_ahead_mask = create_look_ahead_mask(tf.shape(input=input_seq[:, :, 0])[1])
       encoder_mask = tf.maximum(enc_padding_mask, look_ahead_mask)
@@ -715,13 +728,21 @@ class TransformerSeq2seqConditional(BaseModel):
       # Calculate the Euclidean distances between the strokes, normalize and
       # fetch the corresponding (trainable) encodings. They are like the tokens
       # in NLP. Here we "tokenize" the L2-distance.
-      normalized_dist = self.normalized_pairwise_distances(input_cond, seq_len)
+      normalized_dist = self.normalized_pairwise_distances_l2(input_cond, seq_len)
       rel_dist_idx = tf.raw_ops.Bucketize(input=normalized_dist, boundaries=self.dist_boundaries)
       
       if self.inp_conditions is False and self.inp_target_dist_cond and target_cond is not None:
         target_dist_cond = tf.norm(input_cond - target_cond, axis=-1, keepdims=True)
         concat_cond = target_dist_cond
 
+    if using_end_pos:
+      inp_pos_dist_cond = tf.norm(start_pos - end_pos, axis=-1, keepdims=True)
+      if target_cond is not None:
+        targ_pos_dist_cond = tf.norm(target_cond - end_pos, axis=-1, keepdims=True)
+        concat_cond = tf.concat([concat_cond, end_pos, inp_pos_dist_cond, targ_pos_dist_cond], axis=-1)
+      else:
+        concat_cond = tf.concat([concat_cond, end_pos, inp_pos_dist_cond], axis=-1)
+    
     dec_input_seq = input_seq
     if concat_cond is not None:
       dec_input_seq = tf.concat([input_seq, concat_cond], axis=-1)
@@ -729,8 +750,10 @@ class TransformerSeq2seqConditional(BaseModel):
     
     if self.use_encoder:
       enc_input_seq = input_seq
-      if concat_cond is not None:
-        enc_input_seq = tf.concat([input_seq, concat_cond], axis=-1)
+      # if concat_cond is not None:
+      #   enc_input_seq = tf.concat([input_seq, concat_cond], axis=-1)
+      if self.inp_conditions:
+        enc_input_seq = tf.concat([input_seq, input_cond], axis=-1)
       
       enc_input_seq = self.enc_input_layer(enc_input_seq)
       tr_enc_out = self.encoder(
@@ -744,7 +767,7 @@ class TransformerSeq2seqConditional(BaseModel):
       tr_enc_out = dec_input_seq
 
     tr_dec_out, attn_weights = self.decoder(
-        dec_input_seq[:, :2],
+        dec_input_seq,
         tr_enc_out,
         training,
         encoder_mask,

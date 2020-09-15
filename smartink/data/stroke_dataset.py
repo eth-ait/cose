@@ -636,6 +636,7 @@ class TFRecordStroke(Dataset):
   def normalize_start_coord(self, sample):
     """0-mean, unit-variance normalization on the start coordinates."""
     sample[C.INP_START_COORD] = (sample[C.INP_START_COORD] - self.mean_start_pos)/self.std_start_pos
+    sample[C.INP_END_COORD] = (sample[C.INP_END_COORD] - self.mean_start_pos)/self.std_start_pos
     return sample
 
   def pp_translate_to_origin(self, sample):
@@ -1006,7 +1007,7 @@ class TFRecordBatchDiagram(TFRecordStroke):
           tf.data.experimental.bucket_by_sequence_length(
               element_length_func=element_length_func,
               bucket_batch_sizes=bucket_batch_size,
-              bucket_boundaries=[8, 13, 18, 23],
+              bucket_boundaries=[8, 13, 17, 21],
               pad_to_bucket_boundary=False))
     else:
       self.tf_data = self.tf_data.padded_batch(batch_size=1)

@@ -49,6 +49,7 @@ class TrainingEngine(object):
     
     self.pretrained_emb_dir = config.experiment.get("pretrained_emb_dir", None)
     self.train_embedding_model = self.pretrained_emb_dir is None
+    # self.train_embedding_model = True
 
     self.checkpoint = tf.train.Checkpoint(
         optimizer=self.optimizer_stroke_ae,
@@ -280,6 +281,8 @@ class TrainingEngine(object):
     # Restore the best checkpoint and save in saved_model format for deployment.
     self.checkpoint.restore(self.saver.latest_checkpoint)
     print("Loading model {}".format(self.saver.latest_checkpoint))
+    
+    self.train_data.make_one_shot_iterator()
     batch_inputs, batch_targets = self.train_data.get_next()
     _ = self.model(inputs=batch_inputs, training=True)
     

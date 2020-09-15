@@ -207,7 +207,7 @@ def get_config(FLAGS, experiment_id=None):
       pp_to_origin="position" in FLAGS.metadata_type,
       pp_relative_pos="velocity" in FLAGS.metadata_type,
       normalize=not FLAGS.skip_normalization,
-      normalize_start_pos=not FLAGS.normalize_start_pos,
+      normalize_start_pos=FLAGS.normalize_start_pos,
       batch_size=FLAGS.batch_size,
       max_length_threshold=201,
       mask_pen=FLAGS.mask_encoder_pen,
@@ -604,8 +604,22 @@ def build_predictive_model(config_, run_mode):
   else:
     err_unknown_type(config_.decoder.name)
     
-  if config_.predictive_model.get("name", "rnn") == "rnn":
+  # Create a common encoder.
+  canvas_encoder = None
+  canvas_encoder_inp_layer = None
+  if config_.predictive_model.get("use_encoder", False):
+    from smartink.models.sequence.transformer import TransformerEncoder
+    from smartink.models.common.building_blocks import DenseLayers
+    
+    canvas_encoder = TransformerEncoder(config_.predictive_model.layers,
+                                        config_.predictive_model.d_model*2,
+                                        config_.predictive_model.heads,
+                                        config_.predictive_model.hidden_units,
+                                        config_.predictive_model.dropout_rate,
+                                        config_.predictive_model.get("n_spatial_encodings", 0))
+    canvas_encoder_inp_layer = DenseLayers([config_.predictive_model.d_model*2])
   
+  if config_.predictive_model.get("name", "rnn") == "rnn":
     predictive_model = RNNConditional(
         output_size=config_.predictive_model.output_size,
         cell_units=config_.predictive_model.cell_units,
@@ -635,6 +649,8 @@ def build_predictive_model(config_, run_mode):
         inp_conditions=config_.predictive_model.get("inp_conditions", True),
         n_spatial_encodings=config_.predictive_model.get("n_spatial_encodings", 0),
         use_encoder=config_.predictive_model.get("use_encoder", False),
+        encoder=canvas_encoder,
+        encoder_input_layer=canvas_encoder_inp_layer,
         )
   else:
     err_unknown_type(config_.predictive_model.name)
@@ -665,11 +681,13 @@ def build_predictive_model(config_, run_mode):
         scale=config_.position_model.scale,
         run_mode=run_mode,
         autoregressive=False,
-        pooling=config_.position_model.get("pooling_layer", "last_step"),
+        pooling="last_step",  # config_.position_model.get("pooling_layer", "last_step"),
         inp_target_dist_cond=config_.position_model.get("inp_target_dist_cond", False),
         inp_conditions=config_.position_model.get("inp_conditions", True),
         n_spatial_encodings=config_.position_model.get("n_spatial_encodings", 0),
         use_encoder=config_.position_model.get("use_encoder", False),
+        encoder=canvas_encoder,
+        encoder_input_layer=canvas_encoder_inp_layer,
         )
   
   model_ = PredictiveInkModel(
@@ -701,7 +719,7 @@ def build_dataset(config_, run_mode=C.RUN_STATIC, split=C.DATA_TRAIN):
         pp_to_origin=config_.data.pp_to_origin,
         pp_relative_pos=config_.data.pp_relative_pos,
         normalize=config_.data.normalize,
-        normalize_start_pos=config_.data.normalize_start_pos,
+        normalize_start_pos=config_.data.get("normalize_start_pos", False),
         shuffle=True,
         run_mode=run_mode,
         max_length_threshold=config_.data.max_length_threshold,
@@ -727,7 +745,7 @@ def build_dataset(config_, run_mode=C.RUN_STATIC, split=C.DATA_TRAIN):
         pp_to_origin=config_.data.pp_to_origin,
         pp_relative_pos=config_.data.pp_relative_pos,
         normalize=config_.data.normalize,
-        normalize_start_pos=config_.data.normalize_start_pos,
+        normalize_start_pos=config_.data.get("normalize_start_pos", False),
         shuffle=False,
         run_mode=run_mode,
         max_length_threshold=config_.data.max_length_threshold,
@@ -744,7 +762,7 @@ def build_dataset(config_, run_mode=C.RUN_STATIC, split=C.DATA_TRAIN):
         pp_to_origin=config_.data.pp_to_origin,
         pp_relative_pos=config_.data.pp_relative_pos,
         normalize=config_.data.normalize,
-        normalize_start_pos=config_.data.normalize_start_pos,
+        normalize_start_pos=config_.data.get("normalize_start_pos", False),
         shuffle=False,
         max_length_threshold=config_.data.max_length_threshold,
         run_mode=run_mode,
