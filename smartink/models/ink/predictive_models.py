@@ -154,7 +154,7 @@ class PredictiveInkModel(BaseModel):
       def get_random_inp_target_pairs():
         """Get a randomly generated input set and a target."""
         # Randomly set the number of inputs.
-        n_inputs_ = tf.random.uniform([1], minval=2, maxval=min_n_stroke, dtype=tf.int32)[0]
+        n_inputs_ = tf.random.uniform([1], minval=min_n_stroke//2, maxval=min_n_stroke, dtype=tf.int32)[0]
         # Randomly pick a target.
         i_ = tf.random.uniform([n_strokes], minval=0, maxval=1, dtype=tf.float32)
         target_idx_ = tf.round(i_*tf.cast(input_num_strokes - 1, tf.float32))
@@ -249,6 +249,16 @@ class PredictiveInkModel(BaseModel):
       context_pos = start_context_pos
       
     target_pos = tf.expand_dims(tf.gather_nd(start_pos, gather_target_idx), axis=1)
+    
+    if training:
+      indices = tf.range(start=0, limit=tf.shape(pred_input_seq_len)[0], dtype=tf.int32)
+      shuffled_indices = tf.random.shuffle(indices)
+      pred_input = tf.gather(pred_input, shuffled_indices)
+      context_pos = tf.gather(context_pos, shuffled_indices)
+      target_pos = tf.gather(target_pos, shuffled_indices)
+      pred_input_seq_len = tf.gather(pred_input_seq_len, shuffled_indices)
+      pred_targets = tf.gather(pred_targets, shuffled_indices)
+    
     predicted_embedding = self.predictive_model(inputs=dict(input_seq=pred_input,
                                                             input_cond=context_pos,
                                                             target_cond=target_pos,
