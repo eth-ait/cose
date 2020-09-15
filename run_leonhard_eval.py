@@ -9,7 +9,7 @@ WALL_TIME = 4
 cluster_command_format = 'bsub -G ls_hilli -n {} -W {}:00 -o log_{} -R "rusage[mem={}, ngpus_excl_p={}]" '
 # cluster_command_format = 'bsub -G ls_hilli -n {} -W {}:00 -o log_{} -R "rusage[mem={}, ngpus_excl_p={}]" -R "select[gpu_model0==GeForceGTX1080Ti]" '
 
-model_ids = ["1599061732.1", "1599061732.2"]
+model_ids = ["1600070273.1", "1600070273.2", "1600075971.1", "1600075971.2", "1600075971.3", "1600075971.4"]
 experiments_command = "python eval.py --qualitative --quantitative --embedding_analysis "
 
 # Create a unique experiment timestamp.
