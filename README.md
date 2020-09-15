@@ -1,4 +1,10 @@
-# CoSE
+# CoSE: Compositional Stroke Embeddings
+
+We haven't yet refactored our code repository for the final public release. The `master` branch is used to train the model
+we used in the paper for the tables and figures. The `development` branch implements some ideas improving our model. 
+
+Note that this repository is not in its final state. Two branches will be merged in the final version. We will also include our demo code.
+
 
 ### Environment
 Our codebase is in Python3 and using Tensorflow 2.1. We suggest creating a new virtual environment. 
