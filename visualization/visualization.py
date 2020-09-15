@@ -28,7 +28,7 @@ def get_min_max(values, offset_ratio=0.0):
   return (min_, max_)
 
 
-def animate_strokes(strokes, x_borders=None, y_borders=None, colors=None):
+def animate_strokes(strokes, x_borders=None, y_borders=None, colors=None, interval=40):
   """Animates strokes.
 
   Args:
@@ -36,6 +36,7 @@ def animate_strokes(strokes, x_borders=None, y_borders=None, colors=None):
     x_borders: a tuple of min, max x coordinates.
     y_borders: a tuple of min, max y coordinates.
     colors:
+    interval: Delay between frames in milliseconds.
 
   Returns:
   """
@@ -71,8 +72,9 @@ def animate_strokes(strokes, x_borders=None, y_borders=None, colors=None):
     y_size = max((y_range / (y_range + x_range)) * max_size, base_size)
 
   fig, ax = plt.subplots(figsize=(x_size, y_size), tight_layout=True)
-  plt.close()
   plt.axis("tight")
+  plt.axis('off')
+  plt.close()
   ax.set_xlim(x_borders)
   ax.set_ylim(y_borders)
 
@@ -82,7 +84,7 @@ def animate_strokes(strokes, x_borders=None, y_borders=None, colors=None):
   for i, stroke in enumerate(strokes):
     color = colors[i] if colors is not None else mpl.cm.tab20.colors[i%20]
     line_borders.append((current_len, current_len + stroke.shape[0]))
-    lines.append(ax.plot([], [], lw=2, color=color)[0])
+    lines.append(ax.plot([], [], lw=3, color=color)[0])
     current_len += stroke.shape[0] + 1
   num_frames = current_len
 
@@ -112,7 +114,7 @@ def animate_strokes(strokes, x_borders=None, y_borders=None, colors=None):
     return lines
 
   anim = animation.FuncAnimation(
-      fig, animate, init_func=init, frames=num_frames, interval=30, blit=True)
+      fig, animate, init_func=init, frames=num_frames, interval=interval, blit=True)
   # rc('animation', html='jshtml', embed_limit=128)
   # from IPython.display import HTML
   # HTML(anim.to_html5_video(embed_limit=128))
