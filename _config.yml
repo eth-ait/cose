@@ -1,1 +1,11 @@
+title: "CoSE: Compositional Stroke Embeddings"
+logo: "img/logo_cat.png"
+description: > # your text below (remove <br> elements if you don't need line breaks)
+
+repository: eth-ait/cose
+github:
+  is_project_page: true
+  show_footer: false
+arxiv_url: "https://arxiv.org/abs/2006.09930"
+show_downloads: false
 theme: jekyll-theme-cayman
