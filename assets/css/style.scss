@@ -1,0 +1,20 @@
+---
+---
+
+@import "{{ site.theme }}";
+.author { display: inline-block; margin-bottom: 0.5rem; color: rgba(255, 255, 255, 0.99); border-color: transparent; border-style: solid; border-width: 1px; border-radius: 0.3rem; }
+.author + .author { margin-left: 0rem; }
+@media screen and (min-width: 64em) { .author { padding: 0.15rem 1rem; font-size: 1.5rem;} }
+@media screen and (min-width: 25em) and (max-width: 64em) { .author { width: 13em; padding: 0.1rem 0.9rem; font-size: 1.3rem; } }
+@media screen and (max-width: 25em) { .author { display: block; width: 100%; padding: 0.1rem; font-size: 1.0rem; }
+  .author + .author { margin-top: 1rem; margin-left: 0; } }
+
+.teaser_div{width: 80%; margin-left: auto; margin-right: auto; text-align: center;}
+
+.teaser_img { display: inline-block; margin-bottom: 0.5rem; color: rgba(255, 255, 255, 0.99); border-color: transparent; border-style: solid; border-width: 1px; border-radius: 0.3rem; }
+.teaser_img + .teaser_img{ margin-left: 0rem; }
+@media screen and (min-width: 120em) { .teaser_img {width: 25em; padding: 0.75rem 1rem; font-size: 1.5rem;} }
+@media screen and (min-width: 80em) and (max-width: 120em) { .teaser_div{width: 100%} .teaser_img { width: 23em; padding: 0.6rem 0.9rem; font-size: 1.3rem; } }
+@media screen and (min-width: 40em) and (max-width: 80em) { .teaser_div{width: 100%} .teaser_img { width: 15em; padding: 0.6rem 0.9rem; font-size: 1.3rem; } }
+@media screen and (max-width: 40em) { .teaser_div{width: 100%} .teaser_img { display: block; width: 80%; padding: 0rem; font-size: 1.0rem; margin-left: auto; margin-right: auto}
+  .teaser_img + .teaser_img { margin-top: 0rem; margin-left: auto; margin-right: auto } }
