@@ -22,7 +22,41 @@
   <body>
     <header class="page-header" role="banner">
       <h1 class="project-name">{{ page.title | default: site.title | default: site.github.repository_name }}</h1>
+
+      <style type="text/css">
+      .tg  {border-collapse:collapse;border-spacing:0;}
+      .tg td{border-style:solid;border-width:0px;font-size:0.9rem;overflow:hidden;
+        padding:3px 13px;word-break:normal;}
+      .tg th{border-style:solid;border-width:0px;font-size:1.3rem; font-weight:normal;
+        overflow:hidden;padding:3px 13px;word-break:normal;}
+      .tg .tg-c3ow{border-color:inherit;text-align:center;vertical-align:top}
+      .tg .tg-7btt{border-color:inherit;text-align:center;vertical-align:top}
+      .center {margin-left: auto; margin-right: auto;}
+      .teaser {margin-left: 18%; margin-right: 18%; width:64%; padding-top: 50px}
+      </style>
+
       <h2 class="project-tagline">{{ page.description | default: site.description | default: site.github.project_tagline }}</h2>
+
+      <table class="tg center project-tagline">
+      <thead>
+        <tr>
+          <th class="tg-7btt">Emre Aksan</th>
+          <th class="tg-7btt">Thomas Deselaers</th>
+          <th class="tg-7btt">Andrea Tagliasacchi</th>
+          <th class="tg-7btt">Otmar Hilliges</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="tg-c3ow">ETH Zurich</td>
+          <td class="tg-c3ow">Apple Switzerland</td>
+          <td class="tg-c3ow">Google Research</td>
+          <td class="tg-c3ow">ETH Zurich</td>
+        </tr>
+      </tbody>
+      </table>
+
+
       {% if site.github.is_project_page %}
         <a href="{{ site.github.repository_url }}" target="_blank" class="btn">View on GitHub</a>
       {% endif %}
@@ -30,8 +64,14 @@
         <a href="{{ site.github.zip_url }}" target="_blank" class="btn">Download .zip</a>
         <a href="{{ site.github.tar_url }}" target="_blank" class="btn">Download .tar.gz</a>
       {% endif %}
+      {% if site.arxiv_url %}
         <a href="{{ site.arxiv_url }}" target="_blank" class="btn">View on arXiv</a>
+      {% endif %}
     </header>
+
+    {% if site.teaser_img %}
+      <img class="center teaser" src="{{ site.teaser_img}}" style="">
+    {% endif %}
 
     <main id="content" class="main-content" role="main">
       {{ content }}

@@ -7,5 +7,6 @@ github:
   is_project_page: true
   show_footer: false
 arxiv_url: "https://arxiv.org/abs/2006.09930"
+teaser_img: "img/web_teaser.png"
 show_downloads: false
 theme: jekyll-theme-cayman
