@@ -24,34 +24,28 @@
       <h1 class="project-name">{{ page.title | default: site.title | default: site.github.repository_name }}</h1>
 
       <style type="text/css">
-      .tg  {border-collapse:collapse;border-spacing:0;}
-      .tg td{border-style:solid;border-width:0px;font-size:0.9rem;overflow:hidden;
-        padding:3px 13px;word-break:normal;}
-      .tg th{border-style:solid;border-width:0px;font-size:1.3rem; font-weight:normal;
-        overflow:hidden;padding:3px 13px;word-break:normal;}
-      .tg .tg-c3ow{border-color:inherit;text-align:center;vertical-align:top}
-      .tg .tg-7btt{border-color:inherit;text-align:center;vertical-align:top}
-      .center {margin-left: auto; margin-right: auto;}
-      .teaser {margin-left: 18%; margin-right: 18%; width:64%; padding-top: 50px}
+        .center {margin-left: auto; margin-right: auto;}
+        .teaser {margin-left: 5%; margin-right: 5%; width:90%; min-width:80%; padding-top: 50px}
+        .table th {font-weight: normal; text-align: center; vertical-align: center; padding: 0.01em 0.6em; margin-bottom: 0rem}
+        .table td {font-weight: normal; text-align: center; vertical-align: center; padding: 0.5em 0.7em}
       </style>
 
       <h2 class="project-tagline">{{ page.description | default: site.description | default: site.github.project_tagline }}</h2>
-
-      <table class="tg center project-tagline">
+      <table class="center table project-tagline">
       <thead>
         <tr>
-          <th class="tg-7btt">Emre Aksan</th>
-          <th class="tg-7btt">Thomas Deselaers</th>
-          <th class="tg-7btt">Andrea Tagliasacchi</th>
-          <th class="tg-7btt">Otmar Hilliges</th>
+          <th>Emre Aksan</th>
+          <th>Thomas Deselaers</th>
+          <th>Andrea Tagliasacchi</th>
+          <th>Otmar Hilliges</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <td class="tg-c3ow">ETH Zurich</td>
-          <td class="tg-c3ow">Apple Switzerland</td>
-          <td class="tg-c3ow">Google Research</td>
-          <td class="tg-c3ow">ETH Zurich</td>
+          <td><small>ETH Zurich</small></td>
+          <td><small>Apple Switzerland</small></td>
+          <td><small>Google Research</small></td>
+          <td><small>ETH Zurich</small></td>
         </tr>
       </tbody>
       </table>
@@ -70,7 +64,7 @@
     </header>
 
     {% if site.teaser_img %}
-      <img class="center teaser" src="{{ site.teaser_img}}" style="">
+      <img class="teaser" src="{{ site.teaser_img}}" style="">
     {% endif %}
 
     <main id="content" class="main-content" role="main">
