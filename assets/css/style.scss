@@ -3,6 +3,7 @@
 
 @import "{{ site.theme }}";
 .author { display: inline-block; margin-bottom: 0.5rem; color: rgba(255, 255, 255, 0.99); border-color: transparent; border-style: solid; border-width: 1px; border-radius: 0.3rem; }
+.author:hover {color: inherit; text-decoration: none;}
 .author + .author { margin-left: 0rem; }
 @media screen and (min-width: 64em) { .author { padding: 0.15rem 1rem; font-size: 1.5rem;} }
 @media screen and (min-width: 25em) and (max-width: 64em) { .author { width: 13em; padding: 0.1rem 0.9rem; font-size: 1.3rem; } }

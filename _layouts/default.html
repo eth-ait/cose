@@ -24,18 +24,17 @@
       <h1 class="project-name">{{ page.title | default: site.title | default: site.github.repository_name }}</h1>
 
       <style type="text/css">
-        .center {margin-left: auto; margin-right: auto;}
-        .teaser {margin-left: 5%; margin-right: 5%; width:90%; min-width:80%; padding-top: 50px}
         .author_p {margin-bottom: 0.1em; margin-top: 0.1em;}
         .smaller_font {font-size: 80%; opacity: 0.7;}
       </style>
 
-      <h2 class="project-tagline">{{ page.description | default: site.description | default: site.github.project_tagline }}</h2>
+      <h2 class="project-tagline"></h2>
 
-      <a class="author project-tagline"><p class="author_p">Emre Aksan</p> <p class="author_p smaller_font">ETH Zurich</p></a>
-      <a class="author project-tagline"><p class="author_p">Thomas Deselaers</p> <p class="author_p smaller_font">Apple Switzerland</p></a>
-      <a class="author project-tagline"><p class="author_p">Andrea Tagliasacchi</p> <p class="author_p smaller_font">Google Research</p></a>
-      <a class="author project-tagline"><p class="author_p">Otmar Hilliges</p> <p class="author_p smaller_font">ETH Zurich</p></a>
+      {% if site.author_list %}
+        {% for entry in site.author_list %}
+          <a class="author project-tagline"><p class="author_p">{{entry.author}}</p> <p class="author_p smaller_font">{{entry.affiliation}}</p></a>
+        {% endfor %}
+      {% endif %}
 
       <h2 class="project-tagline">{{ page.description | default: site.description | default: site.github.project_tagline }}</h2>
 
@@ -51,12 +50,12 @@
       {% endif %}
     </header>
 
-    {% if site.teaser_img %}
-    <div class="teaser_div" style="">
-      <img class="teaser_img" src="img/web_teaser_flowchart.png" style="">
-      <img class="teaser_img" src="img/web_teaser_cat.png" style="">
-      <img class="teaser_img" src="img/web_teaser_text.png" style="">
-    </div>
+    {% if site.teaser_imgs %}
+      <div class="teaser_div" style="">
+      {% for entry in site.teaser_imgs %}
+        <img class="teaser_img" src="{{entry.img}}" style="">
+      {% endfor %}
+      </div>
     {% endif %}
 
     <main id="content" class="main-content" role="main" style="padding: 0rem 1rem;">
