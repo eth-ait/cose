@@ -60,7 +60,7 @@ var sketch = function( p ) {
   var reset_button, model_sel, random_model_button;
   var text_title, text_decoding_length, text_encoding;
 
-  var title_text = "Draw a diagram";
+  var title_text = "Draw a shape such as circle, rectangle, arrow, hexagon, etc.";
 
   var set_title_text = function(new_text) {
     title_text = new_text.split('_').join(' ');
