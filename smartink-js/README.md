@@ -39,3 +39,29 @@ The user interface is implemented in the `reconstruct.js` and `predict.js` by mo
 
 
 Finally, you can store your TF-JS models on storage.googleapis without requiring a dedicated server.     
+
+### Citation
+If you are using this demo in your work, please cite the following:
+```
+@article{aksan2020cose,
+  title={CoSE: Compositional Stroke Embeddings},
+  author={Aksan, Emre and Deselaers, Thomas and Tagliasacchi, Andrea and Hilliges, Otmar},
+  journal={Advances in Neural Information Processing Systems},
+  volume={33},
+  year={2020}
+}
+
+@article{gervais2020didi,
+  title={The DIDI dataset: Digital Ink Diagram data},
+  author={Gervais, Philippe and Deselaers, Thomas and Aksan, Emre and Hilliges, Otmar},
+  journal={arXiv preprint arXiv:2002.09303},
+  year={2020}
+}
+
+@article{ha2017sketchrnn,
+  title={A neural representation of sketch drawings},
+  author={Ha, David and Eck, Douglas},
+  journal={arXiv preprint arXiv:1704.03477},
+  year={2017}
+}
+```

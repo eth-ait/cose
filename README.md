@@ -48,4 +48,22 @@ where `UNIQUE_ID` is the same as above.
 You can download [our main model](https://drive.google.com/drive/folders/1C6m7dbXaL4wn5Z4-K7ZniqoZaNTiQBdP?usp=sharing) and run evaluation script as explained above.
 
 ### Demo
-An interactive demo is provided in the [smarting-js](https://github.com/eth-ait/cose/tree/master/smartink-js) folder, using the pre-trained models shared above.   
+An interactive demo is provided in the [smarting-js](https://github.com/eth-ait/cose/tree/master/smartink-js) folder, using the pre-trained models shared above.
+
+### Citation
+```
+@article{aksan2020cose,
+  title={CoSE: Compositional Stroke Embeddings},
+  author={Aksan, Emre and Deselaers, Thomas and Tagliasacchi, Andrea and Hilliges, Otmar},
+  journal={Advances in Neural Information Processing Systems},
+  volume={33},
+  year={2020}
+}
+
+@article{gervais2020didi,
+  title={The DIDI dataset: Digital Ink Diagram data},
+  author={Gervais, Philippe and Deselaers, Thomas and Aksan, Emre and Hilliges, Otmar},
+  journal={arXiv preprint arXiv:2002.09303},
+  year={2020}
+}
+```   
