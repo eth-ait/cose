@@ -1,10 +1,8 @@
 # CoSE: Compositional Stroke Embeddings
 
-We haven't yet refactored our code repository for the final public release. The `master` branch is used to train the model
-we used in the paper for the tables and figures. The `development` branch implements some ideas improving our model. 
+We haven't yet refactored our code repository, hence it contains unused functionality. Please do not rely on the default values of the command-line arguments. 
 
-Note that this repository is not in its final state. Two branches will be merged in the final version. We will also include our demo code.
-
+The `master` branch is used to train the model we used in the paper for the tables and figures. The `development` branch implements some ideas improving our model.
 
 ### Environment
 Our codebase is in Python3 and using Tensorflow 2.1. We suggest creating a new virtual environment. 
@@ -47,4 +45,7 @@ python eval.py --model_ids <UNIQUE_ID> --qualitative --quantitative --embedding_
 where `UNIQUE_ID` is the same as above.
 
 ### Pre-trained Models
-You can download [our main model](https://drive.google.com/drive/folders/1C6m7dbXaL4wn5Z4-K7ZniqoZaNTiQBdP?usp=sharing) and run evaluation script as explained above.  
+You can download [our main model](https://drive.google.com/drive/folders/1C6m7dbXaL4wn5Z4-K7ZniqoZaNTiQBdP?usp=sharing) and run evaluation script as explained above.
+
+### Demo
+An interactive demo is provided in the [smarting-js](https://github.com/eth-ait/cose/tree/master/smartink-js) folder, using the pre-trained models shared above.   

@@ -12,11 +12,8 @@
 // implied. See the License for the specific language governing
 // permissions and limitations under the License.
 /**
- * Author: David Ha <hadavid@google.com>
- *
- * @fileoverview Basic p5.js sketch to show how to use sketch-rnn
- * to finish the user's incomplete drawing, and loop through different
- * endings automatically.
+ * Author of the original content (https://github.com/hardmaru/sketch-rnn-flowchart): David Ha <hadavid@google.com>
+ * Edited for CoSE demo by: Emre Aksan <eaksan@inf.ethz.ch>
  */
 
 const model = new SmartInk();
