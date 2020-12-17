@@ -14,8 +14,18 @@ of larger diagram drawings. Our approach is suitable for interactive use cases s
 auto-completing diagrams.
 </p>
 
-**We will share our interactive demo and video at a later date.**
 
+<div class="video_div">
+<h1 align="center">Video</h1>
+<iframe class="video_player" width="960" height="540" src="https://www.youtube.com/embed/lZBl8_6y5QU" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+</div>
+
+
+<h1 align="center">Poster</h1>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.10.0/js/lightbox-plus-jquery.js"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.10.0/css/lightbox.min.css" rel="stylesheet" />
+<a data-lightbox="image-1" data-title="Poster" href="img/cose_png.png"><img src="img/cose_png.png"/></a>
+(Click poster to view full size)
 
 <h1 align="center">Completion Results</h1>
 <p align="justify" style="padding-top: 0px; font-family:'Roboto';" >
@@ -41,7 +51,7 @@ Darker blue corresponds to larger attention weights.
 
 ---
 
-<center><img height="720" width="400" src="img/data_10_pos_and_attention.gif"></center>
+<center><img style="width:40%" src="img/data_10_pos_and_attention.gif"></center>
 
 ---
 

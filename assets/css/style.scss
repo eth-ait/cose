@@ -18,4 +18,12 @@
 @media screen and (min-width: 80em) and (max-width: 120em) { .teaser_div{width: 100%} .teaser_img { width: 23em; padding: 0.6rem 0.9rem; font-size: 1.3rem; } }
 @media screen and (min-width: 40em) and (max-width: 80em) { .teaser_div{width: 100%} .teaser_img { width: 15em; padding: 0.6rem 0.9rem; font-size: 1.3rem; } }
 @media screen and (max-width: 40em) { .teaser_div{width: 100%} .teaser_img { display: block; width: 80%; padding: 0rem; font-size: 1.0rem; margin-left: auto; margin-right: auto}
-  .teaser_img + .teaser_img { margin-top: 0rem; margin-left: auto; margin-right: auto } }
+.teaser_img + .teaser_img { margin-top: 0rem; margin-left: auto; margin-right: auto } }
+
+.video_div{width: 100%; margin-left: auto; margin-right: auto; margin-top: 2em; text-align: center;}
+.video_player { display: inline-block; margin-bottom: 0.5rem; color: rgba(255, 255, 255, 0.99); border-color: transparent; border-style: solid; border-width: 0px; border-radius: 0.1rem; }
+.video_player + .video_player{ margin-left: 0rem; }
+@media screen and (min-width: 80em) and (max-width: 120em) { .video_div{width: 100%} .video_player { padding: 0rem 0rem; font-size: 1.3rem; } }
+@media screen and (min-width: 40em) and (max-width: 80em) { .video_div{width: 100%} .video_player { width: 30em; padding: 0rem 0rem; font-size: 1.3rem; } }
+@media screen and (max-width: 40em) { .video_div{width: 100%} .video_player { display: block; width: 80%; padding: 0rem; font-size: 1.0rem; margin-left: auto; margin-right: auto}
+.video_player + .video_player { margin-top: 0rem; margin-left: auto; margin-right: auto } }
