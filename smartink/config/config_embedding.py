@@ -171,7 +171,7 @@ def get_config(FLAGS, experiment_id=None):
   )
   config.gdrive = AttrDict(
       credential=None,  # Set automatically below.
-      workbook="1D__n4IEKz_zMmknL5_qL7ILVQgWC5Z6wx-fggKQJDtw",
+      workbook=None,  # Set your workbook ID (see https://github.com/emreaksan/glogger)
       sheet=FLAGS.data_name,
   )
   if FLAGS.encoder_model == "rnn":
@@ -310,7 +310,7 @@ def get_config(FLAGS, experiment_id=None):
                                             config.data.data_meta_fname)
 
   config.gdrive.credential = gdrive_key
-  if FLAGS.gdrive_api_key == "nope":
+  if FLAGS.gdrive_api_key == None:
     config.gdrive = None
 
   config.dump(config.experiment.model_dir)
